@@ -3,16 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HDFC Multi-Account Insight Portal</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <title>Enterprise Multi-Account Bank Insight</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
         :root {
-            --primary: #0b2265; /* HDFC Navy Blue */
+            --primary: #0b2265; 
             --primary-light: #1c3f94;
-            --secondary: #ed232a; /* HDFC Red */
+            --secondary: #ed232a; 
             --bg-page: #f4f7f9;
             --bg-card: #ffffff;
             --text-main: #111827;
@@ -51,8 +50,10 @@
         .nav-tab.active { color: white; background: rgba(255,255,255,0.2); }
 
         .btn { padding: 0.5rem 1rem; border-radius: var(--radius); font-weight: 500; font-size: 0.875rem; cursor: pointer; border: none; transition: 0.2s; }
-        .btn-danger { background: var(--secondary); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
         .btn-danger:hover { background: #b91c1c; }
+        .btn-success { background: var(--success); color: white; margin-right: 10px; }
+        .btn-success:hover { background: #047857; }
 
         /* Layout */
         .container { max-width: 1400px; margin: 0 auto; padding: 2rem; width: 100%; flex: 1; }
@@ -124,8 +125,9 @@
             <button class="nav-tab" onclick="switchTab('analytics')">Graphs & Charts</button>
         </div>
 
-        <div id="navActions" style="display: none;">
-            <button class="btn btn-danger" onclick="clearData()">Clear All Data</button>
+        <div id="navActions" style="display: none; align-items: center;">
+            <button class="btn btn-success" onclick="exportData()">⬇ Export CSV</button>
+            <button class="btn btn-danger" onclick="clearData()">Clear Data</button>
         </div>
     </nav>
 
@@ -133,13 +135,13 @@
         <div id="upload-view" class="view-section active">
             <div class="upload-container">
                 <h1 style="color: var(--primary); margin-bottom: 0.5rem;">Unified Financial Intelligence</h1>
-                <p style="color: var(--text-muted);">Upload one or multiple bank statements to track business & personal expenses across all accounts.</p>
+                <p style="color: var(--text-muted);">Upload one or multiple bank statements to track business & personal expenses across all accounts seamlessly.</p>
                 <div class="drop-zone" onclick="document.getElementById('csvFile').click()">
-                    <h3 style="font-size: 1.125rem;">Select Multiple CSV Files</h3>
+                    <h3 style="font-size: 1.125rem;">Select Multi-CSV Files</h3>
                     <p style="font-size: 0.8rem; margin-top: 0.5rem;">Hold CTRL/CMD to select multiple files.</p>
                     <input type="file" id="csvFile" accept=".csv" multiple style="display:none" onchange="handleFiles(event)">
                 </div>
-                <div id="uploadStatus" style="margin-top: 1rem; font-weight: 500; color: var(--primary);"></div>
+                <div id="uploadStatus" style="margin-top: 1.5rem; font-weight: 600; color: var(--primary);"></div>
             </div>
         </div>
 
@@ -170,7 +172,7 @@
                 <div class="filter-group">
                     <select id="accountFilter" onchange="filterData()">
                         <option value="all">All Accounts</option>
-                        </select>
+                    </select>
                 </div>
                 <div class="filter-group">
                     <select id="typeFilter" onchange="filterData()">
@@ -194,6 +196,7 @@
                         <option value="all">All Categories</option>
                         <option value="Business">Business</option>
                         <option value="Personal">Personal</option>
+                        <option value="Income">Income</option>
                         <option value="Uncategorized">Uncategorized</option>
                     </select>
                 </div>
@@ -228,13 +231,13 @@
             
             <div class="charts-grid">
                 <div class="chart-card">
-                    <h3 style="margin-bottom: 1rem; color: var(--primary); text-align: center;">Business vs Personal</h3>
+                    <h3 style="margin-bottom: 1rem; color: var(--primary); text-align: center;">Business vs Personal Overview</h3>
                     <div class="chart-container">
                         <canvas id="categoryChart"></canvas>
                     </div>
                 </div>
                 <div class="chart-card">
-                    <h3 style="margin-bottom: 1rem; color: var(--primary); text-align: center;">Payment Methods</h3>
+                    <h3 style="margin-bottom: 1rem; color: var(--primary); text-align: center;">Payment Method Breakdown</h3>
                     <div class="chart-container">
                         <canvas id="methodChart"></canvas>
                     </div>
@@ -245,38 +248,63 @@
     </div>
 
     <script>
-        const STORAGE_KEY = 'hdfc_multi_account_v3';
+        const STORAGE_KEY = 'hdfc_native_multi_v4';
         let allTxns = [];
+        let filteredTxns = [];
         let chartInstances = {};
 
-        // ------------------ UTILITIES ------------------
-        
-        // Safe Number Parsing (Prevents NaN crashes in table)
+        // --- NATIVE CSV PARSER (Bulletproof against HDFC formatting issues) ---
+        function parseCSV(text) {
+            const rows = [];
+            let currentRow = [];
+            let currentCell = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                const nextChar = text[i + 1];
+                
+                if (inQuotes) {
+                    if (char === '"' && nextChar === '"') {
+                        currentCell += '"'; i++; 
+                    } else if (char === '"') {
+                        inQuotes = false;
+                    } else {
+                        currentCell += char;
+                    }
+                } else {
+                    if (char === '"') {
+                        inQuotes = true;
+                    } else if (char === ',') {
+                        currentRow.push(currentCell.trim()); currentCell = '';
+                    } else if (char === '\n' || (char === '\r' && nextChar === '\n')) {
+                        currentRow.push(currentCell.trim()); rows.push(currentRow);
+                        currentRow = []; currentCell = '';
+                        if (char === '\r') i++;
+                    } else if (char !== '\r') {
+                        currentCell += char;
+                    }
+                }
+            }
+            if (currentCell !== '' || currentRow.length > 0) {
+                currentRow.push(currentCell.trim()); rows.push(currentRow);
+            }
+            return rows;
+        }
+
+        // --- UTILITIES ---
         const parseNumber = (val) => {
-            if (val === undefined || val === null || val === '') return 0;
+            if (!val) return 0;
             const parsed = parseFloat(val.toString().replace(/,/g, ''));
             return isNaN(parsed) ? 0 : parsed;
         };
+        const formatCurrency = (num) => '₹' + parseNumber(num).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const escapeHTML = (str) => (str||'').toString().replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag]));
 
-        // Format Currency safely
-        const formatCurrency = (num) => {
-            const validNum = parseNumber(num);
-            return '₹' + validNum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        };
-
-        // Escape HTML to prevent broken tables from weird bank narration strings
-        const escapeHTML = (str) => {
-            if (!str) return '';
-            return str.toString().replace(/[&<>'"]/g, tag => ({
-                '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
-            }[tag]));
-        };
-
-        // ------------------ CATEGORIZATION ENGINE ------------------
+        // --- CATEGORIZATION ENGINE ---
         function analyzeTransaction(narration, type) {
             const n = narration.toUpperCase();
             
-            // 1. Determine Method
             let method = 'Other';
             if (n.includes('UPI') || n.includes('@')) method = 'UPI';
             else if (n.includes('POS') || n.includes('CARD') || n.includes('NFS')) method = 'Card';
@@ -286,9 +314,8 @@
             else if (n.includes('CHG') || n.includes('GST') || n.includes('TAX')) method = 'Bank';
             else if (n.includes('CHQ') || n.includes('CLG')) method = 'Cheque';
 
-            // 2. Determine Category
             let category = 'Uncategorized';
-            const bizKeywords = ['GST','TAX','CGST','SGST','CHGS','CHARGE','SALARY','VENDOR','PVT','LTD','ENTERPRISE','TRADERS','AGENCY','SERVICES','STAX','FEE'];
+            const bizKeywords = ['GST','TAX','CGST','SGST','CHGS','CHARGE','SALARY','VENDOR','PVT','LTD','ENTERPRISE','TRADERS','AGENCY','SERVICES','STAX','FEE','FT - '];
             const persKeywords = ['SWIGGY','ZOMATO','AMAZON','FLIPKART','MYNTRA','NETFLIX','UBER','OLA','IRCTC','RELIANCE','MART','PAYTM','HOSPITAL','CLINIC','BOOKMYSHOW','BMS','ZUDIO'];
 
             if (type === 'debit') {
@@ -297,11 +324,10 @@
             } else {
                 category = 'Income';
             }
-
             return { method, category };
         }
 
-        // ------------------ INIT & NAVIGATION ------------------
+        // --- INITIALIZATION ---
         function initApp() {
             const stored = localStorage.getItem(STORAGE_KEY);
             if (stored) {
@@ -311,8 +337,7 @@
                         populateAccountDropdown();
                         switchTab('dashboard');
                         document.getElementById('navTabs').classList.add('active');
-                        document.getElementById('navActions').style.display = 'block';
-                        updateStats();
+                        document.getElementById('navActions').style.display = 'flex';
                         filterData();
                         return;
                     }
@@ -324,10 +349,8 @@
         function switchTab(tabId) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
-            
             document.getElementById(`${tabId}-view`).classList.add('active');
             event.currentTarget.classList.add('active');
-
             if (tabId === 'analytics') renderCharts();
         }
 
@@ -338,47 +361,63 @@
             }
         }
 
-        // ------------------ MULTI-FILE PARSING ------------------
+        function exportData() {
+            if(!filteredTxns.length) return alert("No data to export.");
+            
+            let csvContent = "data:text/csv;charset=utf-8,Date,Account,Description,Ref,Type,Method,Category,Amount,Balance\n";
+            filteredTxns.forEach(t => {
+                let row = `"${t.date}","${t.account}","${t.narration}","${t.ref}","${t.type}","${t.method}","${t.category}","${t.amount}","${t.balance}"`;
+                csvContent += row + "\r\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "Bank_Insight_Report.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // --- FILE PARSING CORE ---
         async function handleFiles(event) {
             const files = Array.from(event.target.files);
             if (!files.length) return;
             
             const statusDiv = document.getElementById('uploadStatus');
-            statusDiv.innerText = `Processing ${files.length} file(s)...`;
+            statusDiv.innerText = `Extracting ${files.length} file(s)... Please wait.`;
             
             let newTxns = [];
-
             for (let file of files) {
                 try {
                     const txns = await parseSingleFile(file);
                     newTxns = newTxns.concat(txns);
                 } catch (err) {
-                    console.error(`Error processing ${file.name}:`, err);
+                    console.error(`Error in ${file.name}:`, err);
                 }
             }
 
             if (newTxns.length === 0) {
-                statusDiv.innerText = "No valid transactions found. Please check file formats.";
+                statusDiv.innerText = "Error: Could not find valid transactions in these files.";
+                statusDiv.style.color = 'var(--danger)';
                 return;
             }
 
-            // Merge with existing and sort
             allTxns = allTxns.concat(newTxns);
             
-            // Basic date sort (DD/MM/YY or DD/MM/YYYY to timestamp)
+            // Sort Date Descending (assuming DD/MM/YY)
             allTxns.sort((a, b) => {
-                const dateA = a.date.split('/').reverse().join('');
-                const dateB = b.date.split('/').reverse().join('');
-                return dateA.localeCompare(dateB);
+                const dA = a.date.split('/').reverse().join('');
+                const dB = b.date.split('/').reverse().join('');
+                return dB.localeCompare(dA); 
             });
 
             localStorage.setItem(STORAGE_KEY, JSON.stringify(allTxns));
             
             populateAccountDropdown();
             document.getElementById('navTabs').classList.add('active');
-            document.getElementById('navActions').style.display = 'block';
+            document.getElementById('navActions').style.display = 'flex';
             switchTab('dashboard');
-            updateStats();
             filterData();
         }
 
@@ -387,50 +426,44 @@
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     try {
-                        const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: 'array' }); 
-                        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, raw: false });
-                        
+                        const rows = parseCSV(e.target.result);
                         const fileNameShort = file.name.replace('.csv', '');
                         resolve(extractTransactions(rows, fileNameShort));
-                    } catch (err) {
-                        reject(err);
-                    }
+                    } catch (err) { reject(err); }
                 };
                 reader.onerror = () => reject(new Error("File read error"));
-                reader.readAsArrayBuffer(file);
+                reader.readAsText(file);
             });
         }
 
         function extractTransactions(rows, sourceName) {
             let startIdx = -1;
-            let dateIdx = -1, narIdx = -1, debIdx = -1, credIdx = -1, balIdx = -1;
+            let dateIdx = -1, narIdx = -1, debIdx = 4, credIdx = 5, balIdx = 6;
 
-            // Dynamic Header Detection
+            // Header Detection
             for (let i = 0; i < rows.length; i++) {
-                const rowStr = rows[i].map(c => (c||'').toString().toLowerCase());
+                if (rows[i].length < 3) continue;
                 
-                dateIdx = rowStr.findIndex(c => c.includes('date'));
+                const rowStr = rows[i].map(c => c.toLowerCase());
+                dateIdx = rowStr.findIndex(c => c === 'date' || c === 'tran date' || c === 'txn date');
                 narIdx = rowStr.findIndex(c => c.includes('narration') || c.includes('description') || c.includes('particulars'));
                 
                 if (dateIdx !== -1 && narIdx !== -1) {
-                    debIdx = rowStr.findIndex(c => c.includes('withdrawal') || c.includes('debit'));
-                    credIdx = rowStr.findIndex(c => c.includes('deposit') || c.includes('credit'));
-                    balIdx = rowStr.findIndex(c => c.includes('balance'));
+                    const d = rowStr.findIndex(c => c.includes('withdrawal') || c === 'debit');
+                    const cr = rowStr.findIndex(c => c.includes('deposit') || c === 'credit');
+                    const bl = rowStr.findIndex(c => c.includes('balance'));
+                    if(d !== -1) debIdx = d;
+                    if(cr !== -1) credIdx = cr;
+                    if(bl !== -1) balIdx = bl;
                     
-                    // Fallback to standard HDFC indices if dynamic fails
-                    if(debIdx === -1) debIdx = 4;
-                    if(credIdx === -1) credIdx = 5;
-                    if(balIdx === -1) balIdx = 6;
-
                     startIdx = i + 1;
                     break;
                 }
             }
 
-            if (startIdx === -1) return []; // Invalid file format
+            if (startIdx === -1) return []; 
 
-            if (rows[startIdx] && rows[startIdx][0] && rows[startIdx][0].toString().includes('***')) {
+            while (startIdx < rows.length && rows[startIdx] && rows[startIdx][0] && rows[startIdx][0].includes('***')) {
                 startIdx++;
             }
 
@@ -439,8 +472,10 @@
                 const r = rows[i];
                 if (!r || !r[dateIdx]) continue;
                 
-                const dateStr = r[dateIdx].toString().trim();
-                if (dateStr === '' || dateStr.includes('***') || dateStr.toLowerCase().includes('summary')) break;
+                const dateStr = r[dateIdx].trim();
+                if (dateStr === '' || dateStr.includes('***') || dateStr.toLowerCase().includes('summary') || dateStr.toLowerCase().includes('opening balance')) {
+                    break; 
+                }
 
                 const withdrawal = parseNumber(r[debIdx]);
                 const deposit = parseNumber(r[credIdx]);
@@ -449,9 +484,8 @@
                 if (withdrawal === 0 && deposit === 0) continue;
 
                 const type = withdrawal > 0 ? 'debit' : 'credit';
-                const narration = escapeHTML((r[narIdx] || '').toString().trim());
-                const ref = escapeHTML((r[narIdx + 1] || '').toString().trim()); // usually adjacent
-                
+                const narration = r[narIdx].trim();
+                const ref = r.length > narIdx + 1 ? r[narIdx + 1].trim() : '';
                 const analytics = analyzeTransaction(narration, type);
 
                 txns.push({
@@ -471,35 +505,12 @@
             return txns;
         }
 
-        // ------------------ UI UPDATES ------------------
+        // --- DASHBOARD UPDATES ---
         function populateAccountDropdown() {
             const select = document.getElementById('accountFilter');
             const uniqueAccounts = [...new Set(allTxns.map(t => t.account))];
-            
             select.innerHTML = '<option value="all">All Accounts</option>';
-            uniqueAccounts.forEach(acc => {
-                select.innerHTML += `<option value="${escapeHTML(acc)}">${escapeHTML(acc)}</option>`;
-            });
-        }
-
-        function updateStats() {
-            let inTotal = 0, outTotal = 0, bizTotal = 0, persTotal = 0;
-            
-            // To respect filters in stats, we use the filtered data
-            const accFilter = document.getElementById('accountFilter').value;
-            const activeData = accFilter === 'all' ? allTxns : allTxns.filter(t => t.account === accFilter);
-
-            activeData.forEach(t => {
-                inTotal += t.credit;
-                outTotal += t.debit;
-                if(t.category === 'Business') bizTotal += t.debit;
-                if(t.category === 'Personal') persTotal += t.debit;
-            });
-            
-            document.getElementById('val-credit').innerText = formatCurrency(inTotal);
-            document.getElementById('val-debit').innerText = formatCurrency(outTotal);
-            document.getElementById('val-biz-exp').innerText = formatCurrency(bizTotal);
-            document.getElementById('val-pers-exp').innerText = formatCurrency(persTotal);
+            uniqueAccounts.forEach(acc => { select.innerHTML += `<option value="${escapeHTML(acc)}">${escapeHTML(acc)}</option>`; });
         }
 
         function filterData() {
@@ -509,7 +520,7 @@
             const methodF = document.getElementById('methodFilter').value;
             const catF = document.getElementById('categoryFilter').value;
 
-            let filtered = allTxns.filter(t => {
+            filteredTxns = allTxns.filter(t => {
                 const matchS = t.narration.toLowerCase().includes(search) || t.amount.toString().includes(search) || t.account.toLowerCase().includes(search);
                 const matchAcc = accF === 'all' || t.account === accF;
                 const matchT = typeF === 'all' || t.type === typeF;
@@ -518,10 +529,20 @@
                 return matchS && matchAcc && matchT && matchM && matchC;
             });
 
-            updateStats(); // Update header stats based on account filter
+            // Update Header Stats
+            let inTotal = 0, outTotal = 0, bizTotal = 0, persTotal = 0;
+            filteredTxns.forEach(t => {
+                inTotal += t.credit; outTotal += t.debit;
+                if(t.category === 'Business') bizTotal += t.debit;
+                if(t.category === 'Personal') persTotal += t.debit;
+            });
             
-            // Render table reversed (newest on top generally)
-            renderTable([...filtered].reverse()); 
+            document.getElementById('val-credit').innerText = formatCurrency(inTotal);
+            document.getElementById('val-debit').innerText = formatCurrency(outTotal);
+            document.getElementById('val-biz-exp').innerText = formatCurrency(bizTotal);
+            document.getElementById('val-pers-exp').innerText = formatCurrency(persTotal);
+            
+            renderTable(filteredTxns); 
         }
 
         function renderTable(data) {
@@ -533,10 +554,11 @@
 
             tbody.innerHTML = data.map(r => `
                 <tr>
-                    <td style="white-space:nowrap;"><strong>${r.date}</strong></td>
-                    <td><span class="account-tag">${r.account}</span></td>
+                    <td style="white-space:nowrap;"><strong>${escapeHTML(r.date)}</strong></td>
+                    <td><span class="account-tag">${escapeHTML(r.account)}</span></td>
                     <td class="narration-cell">
-                        <div class="narration-text" title="${r.narration}">${r.narration}</div>
+                        <div class="narration-text" title="${escapeHTML(r.narration)}">${escapeHTML(r.narration)}</div>
+                        <div style="font-size:0.75rem; color:var(--text-muted);">Ref: ${escapeHTML(r.ref || 'N/A')}</div>
                     </td>
                     <td>
                         <span class="badge badge-method">${r.method}</span>
@@ -550,26 +572,21 @@
             `).join('');
         }
 
-        // ------------------ ANALYTICS ------------------
+        // --- CHARTS ENGINE ---
         function renderCharts() {
-            if (allTxns.length === 0) return;
-
+            if (filteredTxns.length === 0) return;
             Object.values(chartInstances).forEach(chart => chart.destroy());
-
-            const accFilter = document.getElementById('accountFilter').value;
-            const activeData = accFilter === 'all' ? allTxns : allTxns.filter(t => t.account === accFilter);
 
             let bizExp = 0, persExp = 0, uncatExp = 0;
             let methodCounts = {};
             let monthlyData = {};
 
-            activeData.forEach(t => {
+            filteredTxns.forEach(t => {
                 if (t.type === 'debit') {
                     if (t.category === 'Business') bizExp += t.amount;
                     else if (t.category === 'Personal') persExp += t.amount;
                     else uncatExp += t.amount;
                 }
-
                 methodCounts[t.method] = (methodCounts[t.method] || 0) + 1;
 
                 const parts = t.date.split('/');
@@ -581,53 +598,45 @@
                 }
             });
 
-            // Category Chart
             const ctxCat = document.getElementById('categoryChart').getContext('2d');
             chartInstances.cat = new Chart(ctxCat, {
                 type: 'pie',
                 data: {
                     labels: ['Business Expenses', 'Personal Expenses', 'Uncategorized'],
-                    datasets: [{
-                        data: [bizExp, persExp, uncatExp],
-                        backgroundColor: ['#4f46e5', '#db2777', '#9ca3af']
-                    }]
+                    datasets: [{ data: [bizExp, persExp, uncatExp], backgroundColor: ['#4f46e5', '#db2777', '#9ca3af'] }]
                 },
                 options: { responsive: true, maintainAspectRatio: false }
             });
 
-            // Method Chart
             const ctxMethod = document.getElementById('methodChart').getContext('2d');
             chartInstances.method = new Chart(ctxMethod, {
                 type: 'doughnut',
                 data: {
                     labels: Object.keys(methodCounts),
-                    datasets: [{
-                        data: Object.values(methodCounts),
-                        backgroundColor: ['#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea', '#475569', '#0891b2']
-                    }]
+                    datasets: [{ data: Object.values(methodCounts), backgroundColor: ['#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea', '#475569', '#0891b2'] }]
                 },
                 options: { responsive: true, maintainAspectRatio: false }
             });
 
-            // Monthly Trend Bar Chart
-            const months = Object.keys(monthlyData);
-            const incomeData = months.map(m => monthlyData[m].in);
-            const expenseData = months.map(m => monthlyData[m].out);
+            // Trend Chart (Reverse to show oldest to newest left-to-right)
+            const sortedMonths = Object.keys(monthlyData).sort((a,b) => {
+                const aParts = a.split('/'); const bParts = b.split('/');
+                return aParts[1] === bParts[1] ? aParts[0] - bParts[0] : aParts[1] - bParts[1];
+            });
+            const incomeData = sortedMonths.map(m => monthlyData[m].in);
+            const expenseData = sortedMonths.map(m => monthlyData[m].out);
 
             const ctxTrend = document.getElementById('trendChart').getContext('2d');
             chartInstances.trend = new Chart(ctxTrend, {
                 type: 'bar',
                 data: {
-                    labels: months,
+                    labels: sortedMonths,
                     datasets: [
                         { label: 'Total Income', data: incomeData, backgroundColor: '#059669', borderRadius: 4 },
                         { label: 'Total Expenses', data: expenseData, backgroundColor: '#dc2626', borderRadius: 4 }
                     ]
                 },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true } }
-                }
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
             });
         }
 
