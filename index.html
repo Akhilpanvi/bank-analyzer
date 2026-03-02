@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HDFC Corporate Bank Insight</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
@@ -21,312 +22,171 @@
             --success-bg: #d1fae5;
             --danger: #dc2626;
             --danger-bg: #fee2e2;
+            --biz-bg: #e0e7ff;
+            --biz-text: #3730a3;
+            --pers-bg: #fce7f3;
+            --pers-text: #9d174d;
             --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             --radius: 8px;
             --nav-height: 64px;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Inter', sans-serif;
-        }
-
-        body {
-            background-color: var(--bg-page);
-            color: var(--text-main);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--bg-page); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
 
         /* Navbar */
         .navbar {
-            height: var(--nav-height);
-            background-color: var(--primary);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 2rem;
-            position: sticky;
-            top: 0;
-            z-index: 50;
-            box-shadow: var(--shadow-md);
+            height: var(--nav-height); background-color: var(--primary); color: white;
+            display: flex; align-items: center; justify-content: space-between; padding: 0 2rem;
+            position: sticky; top: 0; z-index: 50; box-shadow: var(--shadow-md);
         }
-        
-        .brand {
-            font-size: 1.25rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            letter-spacing: -0.025em;
-        }
-        
-        .brand span {
-            background: var(--secondary);
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 0.9rem;
-        }
+        .brand { font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 12px; }
+        .brand span { background: var(--secondary); padding: 2px 8px; border-radius: 4px; font-size: 0.9rem; }
 
-        .nav-actions { display: flex; gap: 1rem; align-items: center; }
+        .nav-center { display: none; gap: 1rem; }
+        .nav-center.active { display: flex; }
+        .nav-tab { background: transparent; color: #cbd5e1; border: none; font-size: 1rem; font-weight: 500; cursor: pointer; padding: 0.5rem 1rem; border-radius: 6px; transition: 0.2s; }
+        .nav-tab:hover { color: white; background: rgba(255,255,255,0.1); }
+        .nav-tab.active { color: white; background: rgba(255,255,255,0.2); }
 
-        .btn {
-            padding: 0.5rem 1rem;
-            border-radius: var(--radius);
-            font-weight: 500;
-            font-size: 0.875rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            border: 1px solid transparent;
-        }
-        .btn-outline {
-            background: transparent;
-            color: white;
-            border-color: rgba(255,255,255,0.3);
-        }
-        .btn-outline:hover { background: rgba(255,255,255,0.1); }
-        .btn-danger { background: var(--danger); color: white; }
+        .btn { padding: 0.5rem 1rem; border-radius: var(--radius); font-weight: 500; font-size: 0.875rem; cursor: pointer; border: none; transition: 0.2s; }
+        .btn-danger { background: var(--secondary); color: white; }
         .btn-danger:hover { background: #b91c1c; }
 
         /* Layout */
-        .container {
-            max-width: 1280px;
-            margin: 0 auto;
-            padding: 2rem;
-            width: 100%;
-            flex: 1;
-        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; width: 100%; flex: 1; }
+        .view-section { display: none; animation: fadeIn 0.4s ease-out; }
+        .view-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Views */
-        #upload-view, #dashboard-view { display: none; }
-        #upload-view.active, #dashboard-view.active { display: block; animation: fadeIn 0.4s ease-out; }
+        /* Dashboard & Controls */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem; }
+        .stat-card { background: var(--bg-card); padding: 1.5rem; border-radius: var(--radius); box-shadow: var(--shadow-sm); border-top: 4px solid var(--border); }
+        .stat-card.balance { border-top-color: var(--primary-light); }
+        .stat-card.credit { border-top-color: var(--success); }
+        .stat-card.debit { border-top-color: var(--danger); }
+        .stat-card.biz { border-top-color: var(--biz-text); }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Upload Area */
-        .upload-container {
-            max-width: 600px;
-            margin: 4rem auto;
-            background: var(--bg-card);
-            border-radius: 12px;
-            padding: 3rem;
-            text-align: center;
-            box-shadow: var(--shadow-md);
-            border: 1px solid var(--border);
-        }
+        .stat-title { font-size: 0.875rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+        .stat-value { font-size: 1.8rem; font-weight: 700; margin-top: 0.5rem; }
         
-        .drop-zone {
-            border: 2px dashed var(--border);
-            border-radius: var(--radius);
-            padding: 3rem 2rem;
-            cursor: pointer;
-            transition: 0.2s;
-            background: #f9fafb;
-            margin-top: 1.5rem;
-        }
-        .drop-zone:hover {
-            border-color: var(--primary);
-            background: #f0f4f8;
-        }
-
-        /* Dashboard Stats */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-        
-        .stat-card {
-            background: var(--bg-card);
-            padding: 1.5rem;
-            border-radius: var(--radius);
-            box-shadow: var(--shadow-sm);
-            border: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            overflow: hidden;
-        }
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; width: 4px; height: 100%;
-        }
-        .stat-card.balance::before { background: var(--primary); }
-        .stat-card.credit::before { background: var(--success); }
-        .stat-card.debit::before { background: var(--danger); }
-
-        .stat-title { font-size: 0.875rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
-        .stat-value { font-size: 2rem; font-weight: 700; margin-top: 0.5rem; color: var(--text-main); }
-        .stat-meta { font-size: 0.875rem; color: var(--text-muted); margin-top: 0.5rem; }
-
-        /* Controls Panel */
-        .controls-panel {
-            background: var(--bg-card);
-            padding: 1rem;
-            border-radius: var(--radius);
-            box-shadow: var(--shadow-sm);
-            border: 1px solid var(--border);
-            margin-bottom: 1.5rem;
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-        
-        .input-group { flex: 1; min-width: 250px; }
-        .filter-group { width: 180px; }
-        
-        input, select {
-            width: 100%;
-            padding: 0.625rem 1rem;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 0.875rem;
-            color: var(--text-main);
-            background: #f9fafb;
-            outline: none;
-            transition: border-color 0.2s;
-        }
+        .controls-panel { background: var(--bg-card); padding: 1rem; border-radius: var(--radius); box-shadow: var(--shadow-sm); margin-bottom: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap; }
+        .input-group { flex: 2; min-width: 250px; }
+        .filter-group { flex: 1; min-width: 150px; }
+        input, select { width: 100%; padding: 0.7rem 1rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem; background: #f9fafb; outline: none; }
         input:focus, select:focus { border-color: var(--primary); background: white; }
 
-        /* Data Table */
-        .table-card {
-            background: var(--bg-card);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow-sm);
-            border: 1px solid var(--border);
-            overflow: hidden;
-        }
-        
+        /* Table */
+        .table-card { background: var(--bg-card); border-radius: var(--radius); box-shadow: var(--shadow-sm); overflow: hidden; }
         .table-container { overflow-x: auto; max-height: 600px; }
-        
-        table { width: 100%; border-collapse: collapse; text-align: left; }
-        
-        th {
-            background: #f8fafc;
-            padding: 1rem;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
-            border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-        
-        td {
-            padding: 1rem;
-            font-size: 0.875rem;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-main);
-        }
-        
-        tr:last-child td { border-bottom: none; }
+        table { width: 100%; border-collapse: collapse; text-align: left; min-width: 900px; }
+        th { background: #f8fafc; padding: 1rem; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+        td { padding: 1rem; font-size: 0.875rem; border-bottom: 1px solid var(--border); }
         tr:hover td { background-color: #f8fafc; }
-
-        .narration-cell { max-width: 400px; }
+        .narration-cell { max-width: 350px; }
         .narration-text { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .ref-text { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
 
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.25rem 0.625rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-        .badge-credit { background: var(--success-bg); color: var(--success); }
-        .badge-debit { background: var(--danger-bg); color: var(--danger); }
+        /* Badges */
+        .badge { display: inline-flex; align-items: center; padding: 0.25rem 0.625rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; margin-right: 5px; }
+        .badge-method { background: #e5e7eb; color: #374151; }
+        .badge-biz { background: var(--biz-bg); color: var(--biz-text); }
+        .badge-pers { background: var(--pers-bg); color: var(--pers-text); }
+        .amt-credit { color: var(--success); font-weight: 700; }
+        .amt-debit { color: var(--danger); font-weight: 700; }
 
-        .amt-credit { color: var(--success); font-weight: 600; }
-        .amt-debit { color: var(--danger); font-weight: 600; }
-        .bal-text { font-weight: 600; color: var(--text-main); }
-        
-        .text-right { text-align: right; }
+        /* Analytics Grid */
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1rem; }
+        .chart-card { background: var(--bg-card); border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow-sm); border: 1px solid var(--border); }
+        .chart-card.full-width { grid-column: span 2; }
+        .chart-container { position: relative; height: 300px; width: 100%; display: flex; justify-content: center; }
 
-        footer { text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.875rem; }
+        /* Upload */
+        .upload-container { max-width: 600px; margin: 4rem auto; background: var(--bg-card); border-radius: 12px; padding: 3rem; text-align: center; box-shadow: var(--shadow-md); }
+        .drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 3rem 2rem; cursor: pointer; background: #f9fafb; margin-top: 1.5rem; transition: 0.2s; }
+        .drop-zone:hover { border-color: var(--primary); background: #f0f4f8; }
 
         @media (max-width: 768px) {
-            .navbar { padding: 0 1rem; }
-            .container { padding: 1rem; }
+            .charts-grid { grid-template-columns: 1fr; }
+            .chart-card.full-width { grid-column: span 1; }
             .controls-panel { flex-direction: column; }
-            .filter-group { width: 100%; }
         }
     </style>
 </head>
 <body>
 
     <nav class="navbar">
-        <div class="brand">
-            <span>HDFC</span> Corporate Analyzer
+        <div class="brand"><span>HDFC</span> Insight Portal</div>
+        
+        <div class="nav-center" id="navTabs">
+            <button class="nav-tab active" onclick="switchTab('dashboard')">Data Table</button>
+            <button class="nav-tab" onclick="switchTab('analytics')">Graphs & Charts</button>
         </div>
-        <div class="nav-actions" id="navActions" style="display: none;">
+
+        <div id="navActions" style="display: none;">
             <button class="btn btn-danger" onclick="clearData()">Clear Data</button>
         </div>
     </nav>
 
     <div class="container">
-        <div id="upload-view" class="active">
+        <div id="upload-view" class="view-section active">
             <div class="upload-container">
-                <h1 style="color: var(--primary); margin-bottom: 0.5rem; font-size: 1.75rem;">Statement Insights</h1>
-                <p style="color: var(--text-muted);">Process and analyze your bank transactions locally.</p>
-                
+                <h1 style="color: var(--primary); margin-bottom: 0.5rem;">Financial Intelligence</h1>
+                <p style="color: var(--text-muted);">Automatically categorize Business vs Personal expenses.</p>
                 <div class="drop-zone" onclick="document.getElementById('csvFile').click()">
-                    <svg style="width: 48px; height: 48px; color: var(--primary-light); margin: 0 auto 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-                    <h3 style="font-size: 1.125rem; font-weight: 600;">Click to browse CSV file</h3>
-                    <p style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.5rem;">Data is stored securely in your browser's local storage.</p>
+                    <h3 style="font-size: 1.125rem;">Select Bank CSV Statement</h3>
+                    <p style="font-size: 0.8rem; margin-top: 0.5rem;">Data stored locally. No servers involved.</p>
                     <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="handleFile(event)">
                 </div>
             </div>
         </div>
 
-        <div id="dashboard-view">
+        <div id="dashboard-view" class="view-section">
             <div class="stats-grid">
                 <div class="stat-card balance">
-                    <div class="stat-title">Net Closing Balance</div>
+                    <div class="stat-title">Current Balance</div>
                     <div class="stat-value" id="val-balance">₹0.00</div>
-                    <div class="stat-meta" id="val-date-range">Statement Period: --</div>
                 </div>
                 <div class="stat-card credit">
-                    <div class="stat-title">Total Deposits</div>
+                    <div class="stat-title">Total Income (In)</div>
                     <div class="stat-value amt-credit" id="val-credit">₹0.00</div>
-                    <div class="stat-meta" id="cnt-credit">0 Transactions</div>
                 </div>
                 <div class="stat-card debit">
-                    <div class="stat-title">Total Withdrawals</div>
+                    <div class="stat-title">Total Expenses (Out)</div>
                     <div class="stat-value amt-debit" id="val-debit">₹0.00</div>
-                    <div class="stat-meta" id="cnt-debit">0 Transactions</div>
+                </div>
+                <div class="stat-card biz">
+                    <div class="stat-title">Business Expenses</div>
+                    <div class="stat-value" style="color: var(--biz-text)" id="val-biz-exp">₹0.00</div>
                 </div>
             </div>
 
             <div class="controls-panel">
                 <div class="input-group">
-                    <input type="text" id="searchInput" placeholder="Search narrations, reference numbers..." oninput="filterData()">
+                    <input type="text" id="searchInput" placeholder="Search narration, ref, or amount..." oninput="filterData()">
                 </div>
                 <div class="filter-group">
                     <select id="typeFilter" onchange="filterData()">
                         <option value="all">All Transactions</option>
-                        <option value="credit">Deposits Only</option>
-                        <option value="debit">Withdrawals Only</option>
+                        <option value="credit">Deposits (Income)</option>
+                        <option value="debit">Withdrawals (Expense)</option>
                     </select>
                 </div>
                 <div class="filter-group">
-                    <select id="sortOrder" onchange="filterData()">
-                        <option value="newest">Date: Newest First</option>
-                        <option value="oldest">Date: Oldest First</option>
-                        <option value="high">Amount: High to Low</option>
-                        <option value="low">Amount: Low to High</option>
+                    <select id="methodFilter" onchange="filterData()">
+                        <option value="all">All Methods</option>
+                        <option value="UPI">UPI Transactions</option>
+                        <option value="Card">Card / POS</option>
+                        <option value="NEFT">NEFT / RTGS</option>
+                        <option value="Bank">Bank Charges / GST</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <select id="categoryFilter" onchange="filterData()">
+                        <option value="all">All Categories</option>
+                        <option value="Business">Business</option>
+                        <option value="Personal">Personal</option>
+                        <option value="Uncategorized">Uncategorized</option>
                     </select>
                 </div>
             </div>
@@ -336,78 +196,121 @@
                     <table id="txnTable">
                         <thead>
                             <tr>
-                                <th>Date / Value Dt</th>
-                                <th>Description</th>
-                                <th>Type</th>
-                                <th class="text-right">Amount (₹)</th>
-                                <th class="text-right">Balance (₹)</th>
+                                <th>Date</th>
+                                <th>Narration & Ref</th>
+                                <th>Details</th>
+                                <th style="text-align:right">Amount (₹)</th>
+                                <th style="text-align:right">Balance (₹)</th>
                             </tr>
                         </thead>
-                        <tbody id="tableBody">
-                            </tbody>
+                        <tbody id="tableBody"></tbody>
                     </table>
                 </div>
             </div>
         </div>
+
+        <div id="analytics-view" class="view-section">
+            <div class="chart-card full-width">
+                <h3 style="margin-bottom: 1rem; color: var(--primary);">Income vs Expenses Over Time</h3>
+                <div class="chart-container" style="height: 350px;">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3 style="margin-bottom: 1rem; color: var(--primary); text-align: center;">Business vs Personal (Expenses)</h3>
+                    <div class="chart-container">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3 style="margin-bottom: 1rem; color: var(--primary); text-align: center;">Transaction Methods (Volume)</h3>
+                    <div class="chart-container">
+                        <canvas id="methodChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
-    <footer>
-        &copy; 2026 Corporate Bank Analyzer Portal | Secure Local Processing
-    </footer>
-
     <script>
-        const STORAGE_KEY = 'hdfc_corp_statement_data';
-        let allTransactions = [];
+        const STORAGE_KEY = 'hdfc_financial_insight_v2';
+        let allTxns = [];
+        let chartInstances = {};
 
-        // Formatting utilities
+        // Formatting
         const formatCurrency = (num) => '₹' + num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        const parseNumber = (val) => {
-            if (!val) return 0;
-            if (typeof val === 'number') return val;
-            return parseFloat(val.toString().replace(/,/g, '')) || 0;
-        };
+        const parseNumber = (val) => parseFloat(val?.toString().replace(/,/g, '')) || 0;
 
-        // Initialize App
+        // Auto-Categorization Engine
+        function analyzeTransaction(narration, type) {
+            const n = narration.toUpperCase();
+            
+            // Determine Payment Method
+            let method = 'Other';
+            if (n.includes('UPI') || n.includes('@')) method = 'UPI';
+            else if (n.includes('POS') || n.includes('CARD') || n.includes('NFS')) method = 'Card';
+            else if (n.includes('NEFT')) method = 'NEFT';
+            else if (n.includes('RTGS') || n.includes('IMPS')) method = 'RTGS';
+            else if (n.includes('ATM') || n.includes('CASH')) method = 'Cash';
+            else if (n.includes('CHG') || n.includes('GST') || n.includes('TAX')) method = 'Bank';
+            else if (n.includes('CHQ') || n.includes('CLG')) method = 'Cheque';
+
+            // Determine Category (Business vs Personal)
+            let category = 'Uncategorized';
+            const bizKeywords = ['GST','TAX','CGST','SGST','CHGS','CHARGE','SALARY','VENDOR','PVT','LTD','ENTERPRISE','TRADERS','AGENCY','SERVICES','STAX'];
+            const persKeywords = ['SWIGGY','ZOMATO','AMAZON','FLIPKART','MYNTRA','NETFLIX','UBER','OLA','IRCTC','RELIANCE','MART','PAYTM','HOSPITAL','CLINIC','BOOKMYSHOW','BMS'];
+
+            if (type === 'debit') {
+                if (bizKeywords.some(k => n.includes(k))) category = 'Business';
+                else if (persKeywords.some(k => n.includes(k))) category = 'Personal';
+            } else {
+                category = 'Income'; // Credits are usually just income/refunds
+            }
+
+            return { method, category };
+        }
+
+        // App Initialization
         function initApp() {
             const stored = localStorage.getItem(STORAGE_KEY);
             if (stored) {
                 try {
-                    allTransactions = JSON.parse(stored);
-                    if (allTransactions.length > 0) {
-                        showDashboard();
+                    allTxns = JSON.parse(stored);
+                    if (allTxns.length > 0) {
+                        switchTab('dashboard');
+                        document.getElementById('navTabs').classList.add('active');
+                        document.getElementById('navActions').style.display = 'block';
+                        updateStats();
+                        filterData();
                         return;
                     }
-                } catch(e) { console.error("Storage parse error", e); }
+                } catch(e) {}
             }
-            showUpload();
-        }
-
-        // View Management
-        function showUpload() {
             document.getElementById('upload-view').classList.add('active');
-            document.getElementById('dashboard-view').classList.remove('active');
-            document.getElementById('navActions').style.display = 'none';
         }
 
-        function showDashboard() {
-            document.getElementById('upload-view').classList.remove('active');
-            document.getElementById('dashboard-view').classList.add('active');
-            document.getElementById('navActions').style.display = 'flex';
-            updateStats();
-            filterData();
+        // Tab Switching
+        function switchTab(tabId) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(`${tabId}-view`).classList.add('active');
+            event.currentTarget.classList.add('active');
+
+            if (tabId === 'analytics') renderCharts();
         }
 
-        // Clear Local Storage
         function clearData() {
-            if(confirm("Are you sure you want to clear all statement data?")) {
+            if(confirm("Permanently wipe local data?")) {
                 localStorage.removeItem(STORAGE_KEY);
-                allTransactions = [];
-                document.getElementById('csvFile').value = '';
-                showUpload();
+                location.reload();
             }
         }
 
-        // File Parsing (Robust logic for HDFC)
+        // File Parsing (Optimized for HDFC Statements)
         function handleFile(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -415,162 +318,207 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 const data = new Uint8Array(e.target.result);
-                // raw: false ensures dates and numbers are converted to string format based on sheet text
                 const workbook = XLSX.read(data, { type: 'array' }); 
-                const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
-                
-                parseStatementLogic(rows);
+                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, raw: false });
+                processRows(rows);
             };
             reader.readAsArrayBuffer(file);
         }
 
-        function parseStatementLogic(rows) {
+        function processRows(rows) {
             let startIdx = -1;
             let txns = [];
 
-            // 1. Identify the Header Row
             for (let i = 0; i < rows.length; i++) {
-                const row = rows[i];
-                if (row.length > 1 && row[0] && row[1]) {
-                    const c0 = row[0].toString().toLowerCase().trim();
-                    const c1 = row[1].toString().toLowerCase().trim();
-                    if (c0.includes('date') && c1.includes('narration')) {
-                        startIdx = i + 1;
-                        break;
-                    }
+                if (rows[i][0]?.toString().toLowerCase().includes('date')) {
+                    startIdx = i + 1; break;
                 }
             }
+            if (startIdx === -1) return alert("Invalid Format: 'Date' header not found.");
+            if (rows[startIdx][0]?.toString().includes('***')) startIdx++;
 
-            if (startIdx === -1) {
-                alert("Could not detect standard 'Date' and 'Narration' headers. Please verify the CSV format.");
-                return;
-            }
-
-            // 2. Skip asterisk separator if present immediately after header
-            if (rows[startIdx] && rows[startIdx][0] && rows[startIdx][0].toString().includes('***')) {
-                startIdx++;
-            }
-
-            // 3. Extract Transactions
             for (let i = startIdx; i < rows.length; i++) {
                 const r = rows[i];
-                
-                // End conditions (Empty row, footer stars, or summary section)
                 if (!r || !r[0]) continue;
                 const dateStr = r[0].toString().trim();
-                
-                if (dateStr === '' || dateStr.includes('***') || dateStr.toLowerCase().includes('summary')) {
-                    break;
-                }
+                if (dateStr === '' || dateStr.includes('***') || dateStr.toLowerCase().includes('summary')) break;
 
                 const withdrawal = parseNumber(r[4]);
                 const deposit = parseNumber(r[5]);
                 const balance = parseNumber(r[6]);
+                if (withdrawal === 0 && deposit === 0) continue;
 
-                // Exclude invalid empty rows that bypassed the check
-                if (withdrawal === 0 && deposit === 0 && balance === 0 && !r[1]) continue;
+                const type = withdrawal > 0 ? 'debit' : 'credit';
+                const narration = (r[1] || '').toString().trim();
+                const analytics = analyzeTransaction(narration, type);
 
                 txns.push({
-                    id: i,
                     date: dateStr,
-                    narration: (r[1] || '').toString().trim(),
+                    narration: narration,
                     ref: (r[2] || '').toString().trim(),
-                    valueDate: (r[3] || '').toString().trim(),
-                    debit: withdrawal,
-                    credit: deposit,
+                    debit: withdrawal, credit: deposit, balance: balance,
                     amount: withdrawal > 0 ? withdrawal : deposit,
-                    type: withdrawal > 0 ? 'debit' : 'credit',
-                    balance: balance
+                    type: type,
+                    method: analytics.method,
+                    category: analytics.category
                 });
             }
 
-            if (txns.length === 0) {
-                alert("No valid transactions found in the file.");
-                return;
-            }
-
-            allTransactions = txns;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(allTransactions));
-            showDashboard();
+            if (txns.length === 0) return alert("No valid transactions parsed.");
+            allTxns = txns;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(allTxns));
+            
+            document.getElementById('navTabs').classList.add('active');
+            document.getElementById('navActions').style.display = 'block';
+            switchTab('dashboard');
+            updateStats();
+            filterData();
         }
 
-        // Dashboard Metrics
+        // UI Updates
         function updateStats() {
-            const totalOut = allTransactions.reduce((acc, curr) => acc + curr.debit, 0);
-            const totalIn = allTransactions.reduce((acc, curr) => acc + curr.credit, 0);
-            const latestBalance = allTransactions[allTransactions.length - 1]?.balance || 0;
+            let inTotal = 0, outTotal = 0, bizTotal = 0;
+            allTxns.forEach(t => {
+                inTotal += t.credit;
+                outTotal += t.debit;
+                if(t.category === 'Business') bizTotal += t.debit;
+            });
             
-            const firstDate = allTransactions[0]?.date || '--';
-            const lastDate = allTransactions[allTransactions.length - 1]?.date || '--';
-
-            document.getElementById('val-balance').innerText = formatCurrency(latestBalance);
-            document.getElementById('val-credit').innerText = formatCurrency(totalIn);
-            document.getElementById('val-debit').innerText = formatCurrency(totalOut);
-            
-            document.getElementById('val-date-range').innerText = `Period: ${firstDate} to ${lastDate}`;
-            document.getElementById('cnt-credit').innerText = `${allTransactions.filter(t => t.type === 'credit').length} Deposits`;
-            document.getElementById('cnt-debit').innerText = `${allTransactions.filter(t => t.type === 'debit').length} Withdrawals`;
+            document.getElementById('val-balance').innerText = formatCurrency(allTxns[allTxns.length - 1]?.balance || 0);
+            document.getElementById('val-credit').innerText = formatCurrency(inTotal);
+            document.getElementById('val-debit').innerText = formatCurrency(outTotal);
+            document.getElementById('val-biz-exp').innerText = formatCurrency(bizTotal);
         }
 
-        // Filtering and Sorting
         function filterData() {
             const search = document.getElementById('searchInput').value.toLowerCase();
-            const type = document.getElementById('typeFilter').value;
-            const sort = document.getElementById('sortOrder').value;
+            const typeF = document.getElementById('typeFilter').value;
+            const methodF = document.getElementById('methodFilter').value;
+            const catF = document.getElementById('categoryFilter').value;
 
-            let filtered = allTransactions.filter(t => {
-                const matchSearch = t.narration.toLowerCase().includes(search) || t.ref.toLowerCase().includes(search);
-                const matchType = type === 'all' || t.type === type;
-                return matchSearch && matchType;
+            let filtered = allTxns.filter(t => {
+                const matchS = t.narration.toLowerCase().includes(search) || t.amount.toString().includes(search);
+                const matchT = typeF === 'all' || t.type === typeF;
+                const matchM = methodF === 'all' || t.method.includes(methodF);
+                const matchC = catF === 'all' || t.category === catF;
+                return matchS && matchT && matchM && matchC;
             });
 
-            filtered.sort((a, b) => {
-                if (sort === 'high') return b.amount - a.amount;
-                if (sort === 'low') return a.amount - b.amount;
-                
-                // Assuming DD/MM/YY format
-                const dA = new Date(a.date.split('/').reverse().join('-'));
-                const dB = new Date(b.date.split('/').reverse().join('-'));
-                return sort === 'newest' ? dB - dA : dA - dB;
-            });
-
-            renderTable(filtered);
+            // Sort newest first naturally
+            renderTable(filtered.reverse());
+            allTxns.reverse(); // put array back in natural order
         }
 
-        // Render HTML Table
         function renderTable(data) {
             const tbody = document.getElementById('tableBody');
-            
-            if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:3rem; color:var(--text-muted);">No transactions match your filters.</td></tr>`;
-                return;
-            }
+            if (!data.length) return tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:3rem; color:var(--text-muted)">No records match filters.</td></tr>`;
 
             tbody.innerHTML = data.map(r => `
                 <tr>
-                    <td>
-                        <div style="font-weight: 500;">${r.date}</div>
-                        ${r.valueDate && r.valueDate !== r.date ? `<div class="ref-text">Val: ${r.valueDate}</div>` : ''}
-                    </td>
+                    <td><strong>${r.date}</strong></td>
                     <td class="narration-cell">
                         <div class="narration-text" title="${r.narration}">${r.narration}</div>
-                        <div class="ref-text">${r.ref ? 'Ref: ' + r.ref : 'No Ref'}</div>
+                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Ref: ${r.ref || 'N/A'}</div>
                     </td>
                     <td>
-                        <span class="badge ${r.type === 'debit' ? 'badge-debit' : 'badge-credit'}">
-                            ${r.type === 'debit' ? 'Withdrawal' : 'Deposit'}
-                        </span>
+                        <span class="badge badge-method">${r.method}</span>
+                        <span class="badge ${r.category === 'Business' ? 'badge-biz' : (r.category === 'Personal' ? 'badge-pers' : 'badge-method')}">${r.category}</span>
                     </td>
-                    <td class="text-right ${r.type === 'debit' ? 'amt-debit' : 'amt-credit'}">
-                        ${r.type === 'debit' ? '-' : '+'}${formatCurrency(r.amount).replace('₹', '')}
+                    <td style="text-align:right;" class="${r.type === 'debit' ? 'amt-debit' : 'amt-credit'}">
+                        ${r.type === 'debit' ? '-' : '+'}${formatCurrency(r.amount).replace('₹','')}
                     </td>
-                    <td class="text-right bal-text">${formatCurrency(r.balance)}</td>
+                    <td style="text-align:right; font-weight:600;">${formatCurrency(r.balance)}</td>
                 </tr>
             `).join('');
         }
 
-        // Run Initialization on Load
+        // CHART.JS Analytics Rendering
+        function renderCharts() {
+            if (allTxns.length === 0) return;
+
+            // Destroy old charts to prevent hover glitch overlays
+            Object.values(chartInstances).forEach(chart => chart.destroy());
+
+            // 1. Data Prep: Business vs Personal (Expenses Only)
+            let bizExp = 0, persExp = 0, uncatExp = 0;
+            
+            // 2. Data Prep: Payment Methods (Count)
+            let methodCounts = {};
+
+            // 3. Data Prep: Monthly Trend
+            let monthlyData = {};
+
+            allTxns.forEach(t => {
+                // Category summation
+                if (t.type === 'debit') {
+                    if (t.category === 'Business') bizExp += t.amount;
+                    else if (t.category === 'Personal') persExp += t.amount;
+                    else uncatExp += t.amount;
+                }
+
+                // Method counting
+                methodCounts[t.method] = (methodCounts[t.method] || 0) + 1;
+
+                // Monthly grouping (Extract MM/YYYY)
+                const parts = t.date.split('/');
+                if(parts.length === 3) {
+                    const monthKey = `${parts[1]}/${parts[2]}`;
+                    if(!monthlyData[monthKey]) monthlyData[monthKey] = { in: 0, out: 0 };
+                    if(t.type === 'credit') monthlyData[monthKey].in += t.amount;
+                    else monthlyData[monthKey].out += t.amount;
+                }
+            });
+
+            // -- Render Category Pie Chart --
+            const ctxCat = document.getElementById('categoryChart').getContext('2d');
+            chartInstances.cat = new Chart(ctxCat, {
+                type: 'pie',
+                data: {
+                    labels: ['Business', 'Personal', 'Uncategorized'],
+                    datasets: [{
+                        data: [bizExp, persExp, uncatExp],
+                        backgroundColor: ['#4f46e5', '#db2777', '#9ca3af']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // -- Render Method Doughnut Chart --
+            const ctxMethod = document.getElementById('methodChart').getContext('2d');
+            chartInstances.method = new Chart(ctxMethod, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(methodCounts),
+                    datasets: [{
+                        data: Object.values(methodCounts),
+                        backgroundColor: ['#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea', '#475569', '#0891b2']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // -- Render Monthly Trend Bar Chart --
+            const months = Object.keys(monthlyData);
+            const incomeData = months.map(m => monthlyData[m].in);
+            const expenseData = months.map(m => monthlyData[m].out);
+
+            const ctxTrend = document.getElementById('trendChart').getContext('2d');
+            chartInstances.trend = new Chart(ctxTrend, {
+                type: 'bar',
+                data: {
+                    labels: months,
+                    datasets: [
+                        { label: 'Income', data: incomeData, backgroundColor: '#059669', borderRadius: 4 },
+                        { label: 'Expenses', data: expenseData, backgroundColor: '#dc2626', borderRadius: 4 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+
         window.addEventListener('DOMContentLoaded', initApp);
     </script>
 </body>
