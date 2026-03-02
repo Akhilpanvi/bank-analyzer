@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bank Statement Insight Portal</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg-body: #f0f2f5;
+            --bg-card: #ffffff;
+            --primary: #c9122a; /* HDFC Red */
+            --secondary: #1c3f94; /* HDFC Blue */
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --nav-height: 65px;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-body: #111827;
+            --bg-card: #1f2937;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --border: #374151;
+        }
+
+        * { box-sizing: border-box; font-family: 'Inter', -apple-system, sans-serif; }
+
+        body {
+            background: var(--bg-body);
+            color: var(--text-main);
+            margin: 0;
+            padding-top: var(--nav-height);
+            transition: 0.3s;
+        }
+
+        /* --- NAVIGATION --- */
+        .navbar {
+            height: var(--nav-height);
+            background: var(--secondary);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
+            position: fixed;
+            top: 0; width: 100%;
+            z-index: 1000;
+            border-bottom: 4px solid var(--primary);
+        }
+        .nav-logo { font-weight: 800; font-size: 1.2rem; letter-spacing: 1px; }
+        .nav-btns { display: flex; gap: 10px; }
+        .icon-btn { background: rgba(255,255,255,0.15); border: none; color: white; width: 40px; height: 40px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .icon-btn:hover { background: rgba(255,255,255,0.25); }
+
+        /* --- DASHBOARD LAYOUT --- */
+        .container { max-width: 1300px; margin: 0 auto; padding: 1.5rem; }
+        
+        /* Summary Grid */
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .stat-card { background: var(--bg-card); padding: 1.5rem; border-radius: 12px; box-shadow: var(--shadow); border-top: 4px solid var(--border); }
+        .stat-card.income { border-top-color: var(--success); }
+        .stat-card.expense { border-top-color: var(--danger); }
+        .stat-card.balance { border-top-color: var(--secondary); }
+        .stat-label { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+        .stat-value { font-size: 1.7rem; font-weight: 800; margin: 8px 0; }
+
+        /* Controls */
+        .controls-panel { 
+            background: var(--bg-card); padding: 1.2rem; border-radius: 12px; box-shadow: var(--shadow);
+            margin-bottom: 1.5rem; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;
+        }
+        .search-input { flex: 1; min-width: 280px; position: relative; }
+        input, select { 
+            width: 100%; padding: 12px 15px; border: 1px solid var(--border); border-radius: 8px; 
+            background: var(--bg-body); color: var(--text-main); font-size: 1rem; outline: none;
+        }
+        input:focus { border-color: var(--secondary); }
+
+        /* Transaction Table */
+        .table-wrapper { 
+            background: var(--bg-card); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden;
+            overflow-x: auto;
+        }
+        table { width: 100%; border-collapse: collapse; min-width: 900px; }
+        th { background: #f8fafc; color: var(--text-muted); font-weight: 600; text-align: left; padding: 15px; border-bottom: 2px solid var(--border); }
+        td { padding: 15px; border-bottom: 1px solid var(--border); font-size: 0.95rem; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background: rgba(28, 63, 148, 0.03); }
+
+        .amt-pos { color: var(--success); font-weight: 700; }
+        .amt-neg { color: var(--danger); font-weight: 700; }
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
+        .bg-credit { background: #d1fae5; color: #065f46; }
+        .bg-debit { background: #fee2e2; color: #991b1b; }
+
+        /* Upload Placeholder */
+        .upload-hero {
+            background: var(--bg-card); border: 2px dashed var(--border); border-radius: 20px;
+            padding: 5rem 2rem; text-align: center; margin-top: 2rem; cursor: pointer; transition: 0.3s;
+        }
+        .upload-hero:hover { border-color: var(--secondary); background: rgba(28, 63, 148, 0.02); }
+
+        #dashboard { display: none; animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        @media (max-width: 768px) {
+            .navbar { padding: 0 1rem; }
+            .controls-panel { flex-direction: column; }
+            .search-input { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="nav-logo">HDFC INSIGHT <span style="font-weight: 300; font-size: 0.9rem; margin-left: 5px; color: #ddd;">| PORTAL</span></div>
+        <div class="nav-btns">
+            <button class="icon-btn" onclick="location.reload()" title="New Upload">📂</button>
+            <button class="icon-btn" onclick="toggleTheme()" title="Appearance">◑</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div id="upload-view">
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <h1 style="color: var(--secondary); font-size: 2.5rem; margin-bottom: 0.5rem;">Bank Statement Analyzer</h1>
+                <p style="color: var(--text-muted);">Visualize your spending and income trends in seconds.</p>
+            </div>
+            <div class="upload-hero" onclick="document.getElementById('fileInput').click()">
+                <div style="font-size: 4rem; margin-bottom: 1.5rem;">📊</div>
+                <h2 style="margin: 0;">Select Statement CSV</h2>
+                <p style="color: var(--text-muted); margin-top: 10px;">Drag and drop or click to browse files</p>
+                <input type="file" id="fileInput" accept=".csv" style="display:none" onchange="processFile(event)">
+            </div>
+        </div>
+
+        <div id="dashboard">
+            <div class="summary-grid">
+                <div class="stat-card balance">
+                    <div class="stat-label">Net Closing Balance</div>
+                    <div class="stat-value" id="val-balance">₹0.00</div>
+                    <div style="font-size: 0.8rem;" id="val-open-bal" class="text-muted">Opening: ₹0.00</div>
+                </div>
+                <div class="stat-card income">
+                    <div class="stat-label">Total Deposits (+)</div>
+                    <div class="stat-value amt-pos" id="val-credit">₹0.00</div>
+                    <div id="cnt-credit" style="font-size: 0.8rem; color: var(--text-muted);">0 transactions</div>
+                </div>
+                <div class="stat-card expense">
+                    <div class="stat-label">Total Withdrawals (-)</div>
+                    <div class="stat-value amt-neg" id="val-debit">₹0.00</div>
+                    <div id="cnt-debit" style="font-size: 0.8rem; color: var(--text-muted);">0 transactions</div>
+                </div>
+            </div>
+
+            <div class="controls-panel">
+                <div class="search-input">
+                    <input type="text" id="searchBox" placeholder="Search merchants, UPI IDs, or references..." onkeyup="applyFilters()">
+                </div>
+                <div style="min-width: 160px;">
+                    <select id="typeFilter" onchange="applyFilters()">
+                        <option value="all">All Types</option>
+                        <option value="debit">Withdrawals</option>
+                        <option value="credit">Deposits</option>
+                    </select>
+                </div>
+                <div style="min-width: 160px;">
+                    <select id="sortBox" onchange="applyFilters()">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="high">Amount: High to Low</option>
+                        <option value="low">Amount: Low to High</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-wrapper">
+                <table id="mainTable">
+                    <thead>
+                        <tr>
+                            <th>Transaction Date</th>
+                            <th>Description / Narration</th>
+                            <th>Type</th>
+                            <th style="text-align:right">Value (₹)</th>
+                            <th style="text-align:right">Running Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <footer style="margin-top: 4rem; text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.85rem; border-top: 1px solid var(--border);">
+        HDFC Bank Insight Portal • Data is processed locally in your browser for security.
+    </footer>
+
+    <script>
+        let fullTransactions = [];
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            document.documentElement.setAttribute('data-theme', current === 'light' ? 'dark' : 'light');
+        }
+
+        function processFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const rows = text.split('\n').map(row => row.split(',').map(cell => cell.trim().replace(/^"|"$/g, '')));
+                parseHDFC(rows);
+            };
+            reader.readAsText(file);
+        }
+
+        function parseHDFC(rows) {
+            let startIdx = -1;
+            let transactions = [];
+
+            // 1. Locate Header Row
+            for (let i = 0; i < rows.length; i++) {
+                if (rows[i][0]?.toLowerCase().includes('date') && rows[i][1]?.toLowerCase().includes('narration')) {
+                    startIdx = i + 1;
+                    break;
+                }
+            }
+
+            if (startIdx === -1) {
+                alert("Invalid HDFC CSV format. Could not find transaction headers.");
+                return;
+            }
+
+            // 2. Extract Valid Rows
+            for (let i = startIdx; i < rows.length; i++) {
+                const r = rows[i];
+                // Stop at empty lines or summary sections
+                if (!r[0] || r[0].includes('***') || r[0].toLowerCase().includes('statement summary')) break;
+                
+                const withdrawal = parseFloat(r[4]) || 0;
+                const deposit = parseFloat(r[5]) || 0;
+                const bal = parseFloat(r[6]) || 0;
+
+                transactions.push({
+                    id: i,
+                    date: r[0],
+                    narration: r[1],
+                    ref: r[2],
+                    valueDate: r[3],
+                    withdrawal: withdrawal,
+                    deposit: deposit,
+                    amount: withdrawal > 0 ? withdrawal : deposit,
+                    type: withdrawal > 0 ? 'debit' : 'credit',
+                    balance: bal
+                });
+            }
+
+            fullTransactions = transactions;
+            document.getElementById('upload-view').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            
+            updateDashboardStats();
+            applyFilters();
+        }
+
+        function updateDashboardStats() {
+            const totalOut = fullTransactions.reduce((s, r) => s + r.withdrawal, 0);
+            const totalIn = fullTransactions.reduce((s, r) => s + r.deposit, 0);
+            const closing = fullTransactions[fullTransactions.length - 1]?.balance || 0;
+            const opening = fullTransactions[0]?.balance + (fullTransactions[0].withdrawal - fullTransactions[0].deposit) || 0;
+
+            document.getElementById('val-balance').innerText = `₹${closing.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+            document.getElementById('val-open-bal').innerText = `Opening: ₹${opening.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+            document.getElementById('val-credit').innerText = `₹${totalIn.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+            document.getElementById('val-debit').innerText = `₹${totalOut.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+            
+            document.getElementById('cnt-credit').innerText = `${fullTransactions.filter(r => r.type === 'credit').length} deposits`;
+            document.getElementById('cnt-debit').innerText = `${fullTransactions.filter(r => r.type === 'debit').length} withdrawals`;
+        }
+
+        function applyFilters() {
+            const search = document.getElementById('searchBox').value.toLowerCase();
+            const type = document.getElementById('typeFilter').value;
+            const sort = document.getElementById('sortBox').value;
+
+            let filtered = fullTransactions.filter(t => {
+                const matchesSearch = t.narration.toLowerCase().includes(search) || t.ref.toLowerCase().includes(search);
+                const matchesType = type === 'all' || t.type === type;
+                return matchesSearch && matchesType;
+            });
+
+            // Sorting Logic
+            filtered.sort((a, b) => {
+                if (sort === 'high') return b.amount - a.amount;
+                if (sort === 'low') return a.amount - b.amount;
+                
+                // Date parsing (Assumes DD/MM/YY)
+                const dateA = new Date(a.date.split('/').reverse().join('-'));
+                const dateB = new Date(b.date.split('/').reverse().join('-'));
+                return sort === 'newest' ? dateB - dateA : dateA - dateB;
+            });
+
+            renderTable(filtered);
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = data.length ? data.map(r => `
+                <tr>
+                    <td><div style="font-weight:600">${r.date}</div><div style="font-size:0.75rem; color:var(--text-muted)">Value: ${r.valueDate}</div></td>
+                    <td>
+                        <div style="max-width:450px; overflow:hidden; text-overflow:ellipsis; font-weight:500;">${r.narration}</div>
+                        <div style="font-size:0.75rem; color:var(--text-muted)">Ref: ${r.ref}</div>
+                    </td>
+                    <td><span class="badge ${r.type === 'debit' ? 'bg-debit' : 'bg-credit'}">${r.type.toUpperCase()}</span></td>
+                    <td style="text-align:right" class="${r.type === 'debit' ? 'amt-neg' : 'amt-pos'}">
+                        ${r.type === 'debit' ? '-' : '+'}${r.amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                    </td>
+                    <td style="text-align:right; font-weight:700">₹${r.balance.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                </tr>
+            `).join('') : `<tr><td colspan="5" style="text-align:center; padding:4rem; color:var(--text-muted)">No matching transactions found.</td></tr>`;
+        }
+    </script>
+</body>
+</html>
