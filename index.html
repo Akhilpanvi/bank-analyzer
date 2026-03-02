@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HDFC Corporate Bank Insight</title>
+    <title>HDFC Multi-Account Insight Portal</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -63,10 +63,10 @@
         /* Dashboard & Controls */
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem; }
         .stat-card { background: var(--bg-card); padding: 1.5rem; border-radius: var(--radius); box-shadow: var(--shadow-sm); border-top: 4px solid var(--border); }
-        .stat-card.balance { border-top-color: var(--primary-light); }
         .stat-card.credit { border-top-color: var(--success); }
         .stat-card.debit { border-top-color: var(--danger); }
         .stat-card.biz { border-top-color: var(--biz-text); }
+        .stat-card.pers { border-top-color: var(--pers-text); }
 
         .stat-title { font-size: 0.875rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
         .stat-value { font-size: 1.8rem; font-weight: 700; margin-top: 0.5rem; }
@@ -80,12 +80,13 @@
         /* Table */
         .table-card { background: var(--bg-card); border-radius: var(--radius); box-shadow: var(--shadow-sm); overflow: hidden; }
         .table-container { overflow-x: auto; max-height: 600px; }
-        table { width: 100%; border-collapse: collapse; text-align: left; min-width: 900px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; min-width: 1000px; }
         th { background: #f8fafc; padding: 1rem; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
         td { padding: 1rem; font-size: 0.875rem; border-bottom: 1px solid var(--border); }
         tr:hover td { background-color: #f8fafc; }
         .narration-cell { max-width: 350px; }
         .narration-text { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .account-tag { font-size: 0.7rem; background: #e2e8f0; color: #475569; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px; }
 
         /* Badges */
         .badge { display: inline-flex; align-items: center; padding: 0.25rem 0.625rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; margin-right: 5px; }
@@ -102,7 +103,7 @@
         .chart-container { position: relative; height: 300px; width: 100%; display: flex; justify-content: center; }
 
         /* Upload */
-        .upload-container { max-width: 600px; margin: 4rem auto; background: var(--bg-card); border-radius: 12px; padding: 3rem; text-align: center; box-shadow: var(--shadow-md); }
+        .upload-container { max-width: 650px; margin: 4rem auto; background: var(--bg-card); border-radius: 12px; padding: 3rem; text-align: center; box-shadow: var(--shadow-md); }
         .drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 3rem 2rem; cursor: pointer; background: #f9fafb; margin-top: 1.5rem; transition: 0.2s; }
         .drop-zone:hover { border-color: var(--primary); background: #f0f4f8; }
 
@@ -116,7 +117,7 @@
 <body>
 
     <nav class="navbar">
-        <div class="brand"><span>HDFC</span> Insight Portal</div>
+        <div class="brand"><span>HDFC</span> Multi-Account Portal</div>
         
         <div class="nav-center" id="navTabs">
             <button class="nav-tab active" onclick="switchTab('dashboard')">Data Table</button>
@@ -124,29 +125,26 @@
         </div>
 
         <div id="navActions" style="display: none;">
-            <button class="btn btn-danger" onclick="clearData()">Clear Data</button>
+            <button class="btn btn-danger" onclick="clearData()">Clear All Data</button>
         </div>
     </nav>
 
     <div class="container">
         <div id="upload-view" class="view-section active">
             <div class="upload-container">
-                <h1 style="color: var(--primary); margin-bottom: 0.5rem;">Financial Intelligence</h1>
-                <p style="color: var(--text-muted);">Automatically categorize Business vs Personal expenses.</p>
+                <h1 style="color: var(--primary); margin-bottom: 0.5rem;">Unified Financial Intelligence</h1>
+                <p style="color: var(--text-muted);">Upload one or multiple bank statements to track business & personal expenses across all accounts.</p>
                 <div class="drop-zone" onclick="document.getElementById('csvFile').click()">
-                    <h3 style="font-size: 1.125rem;">Select Bank CSV Statement</h3>
-                    <p style="font-size: 0.8rem; margin-top: 0.5rem;">Data stored locally. No servers involved.</p>
-                    <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="handleFile(event)">
+                    <h3 style="font-size: 1.125rem;">Select Multiple CSV Files</h3>
+                    <p style="font-size: 0.8rem; margin-top: 0.5rem;">Hold CTRL/CMD to select multiple files.</p>
+                    <input type="file" id="csvFile" accept=".csv" multiple style="display:none" onchange="handleFiles(event)">
                 </div>
+                <div id="uploadStatus" style="margin-top: 1rem; font-weight: 500; color: var(--primary);"></div>
             </div>
         </div>
 
         <div id="dashboard-view" class="view-section">
             <div class="stats-grid">
-                <div class="stat-card balance">
-                    <div class="stat-title">Current Balance</div>
-                    <div class="stat-value" id="val-balance">₹0.00</div>
-                </div>
                 <div class="stat-card credit">
                     <div class="stat-title">Total Income (In)</div>
                     <div class="stat-value amt-credit" id="val-credit">₹0.00</div>
@@ -159,11 +157,20 @@
                     <div class="stat-title">Business Expenses</div>
                     <div class="stat-value" style="color: var(--biz-text)" id="val-biz-exp">₹0.00</div>
                 </div>
+                <div class="stat-card pers">
+                    <div class="stat-title">Personal Expenses</div>
+                    <div class="stat-value" style="color: var(--pers-text)" id="val-pers-exp">₹0.00</div>
+                </div>
             </div>
 
             <div class="controls-panel">
                 <div class="input-group">
                     <input type="text" id="searchInput" placeholder="Search narration, ref, or amount..." oninput="filterData()">
+                </div>
+                <div class="filter-group">
+                    <select id="accountFilter" onchange="filterData()">
+                        <option value="all">All Accounts</option>
+                        </select>
                 </div>
                 <div class="filter-group">
                     <select id="typeFilter" onchange="filterData()">
@@ -175,10 +182,11 @@
                 <div class="filter-group">
                     <select id="methodFilter" onchange="filterData()">
                         <option value="all">All Methods</option>
-                        <option value="UPI">UPI Transactions</option>
-                        <option value="Card">Card / POS</option>
+                        <option value="UPI">UPI</option>
+                        <option value="Card">Card</option>
                         <option value="NEFT">NEFT / RTGS</option>
-                        <option value="Bank">Bank Charges / GST</option>
+                        <option value="Bank">Bank Charges</option>
+                        <option value="Cheque">Cheque</option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -197,8 +205,9 @@
                         <thead>
                             <tr>
                                 <th>Date</th>
+                                <th>Account Source</th>
                                 <th>Narration & Ref</th>
-                                <th>Details</th>
+                                <th>Classification</th>
                                 <th style="text-align:right">Amount (₹)</th>
                                 <th style="text-align:right">Balance (₹)</th>
                             </tr>
@@ -211,7 +220,7 @@
 
         <div id="analytics-view" class="view-section">
             <div class="chart-card full-width">
-                <h3 style="margin-bottom: 1rem; color: var(--primary);">Income vs Expenses Over Time</h3>
+                <h3 style="margin-bottom: 1rem; color: var(--primary);">Income vs Expenses Trend</h3>
                 <div class="chart-container" style="height: 350px;">
                     <canvas id="trendChart"></canvas>
                 </div>
@@ -219,13 +228,13 @@
             
             <div class="charts-grid">
                 <div class="chart-card">
-                    <h3 style="margin-bottom: 1rem; color: var(--primary); text-align: center;">Business vs Personal (Expenses)</h3>
+                    <h3 style="margin-bottom: 1rem; color: var(--primary); text-align: center;">Business vs Personal</h3>
                     <div class="chart-container">
                         <canvas id="categoryChart"></canvas>
                     </div>
                 </div>
                 <div class="chart-card">
-                    <h3 style="margin-bottom: 1rem; color: var(--primary); text-align: center;">Transaction Methods (Volume)</h3>
+                    <h3 style="margin-bottom: 1rem; color: var(--primary); text-align: center;">Payment Methods</h3>
                     <div class="chart-container">
                         <canvas id="methodChart"></canvas>
                     </div>
@@ -236,50 +245,70 @@
     </div>
 
     <script>
-        const STORAGE_KEY = 'hdfc_financial_insight_v2';
+        const STORAGE_KEY = 'hdfc_multi_account_v3';
         let allTxns = [];
         let chartInstances = {};
 
-        // Formatting
-        const formatCurrency = (num) => '₹' + num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        const parseNumber = (val) => parseFloat(val?.toString().replace(/,/g, '')) || 0;
+        // ------------------ UTILITIES ------------------
+        
+        // Safe Number Parsing (Prevents NaN crashes in table)
+        const parseNumber = (val) => {
+            if (val === undefined || val === null || val === '') return 0;
+            const parsed = parseFloat(val.toString().replace(/,/g, ''));
+            return isNaN(parsed) ? 0 : parsed;
+        };
 
-        // Auto-Categorization Engine
+        // Format Currency safely
+        const formatCurrency = (num) => {
+            const validNum = parseNumber(num);
+            return '₹' + validNum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        };
+
+        // Escape HTML to prevent broken tables from weird bank narration strings
+        const escapeHTML = (str) => {
+            if (!str) return '';
+            return str.toString().replace(/[&<>'"]/g, tag => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+            }[tag]));
+        };
+
+        // ------------------ CATEGORIZATION ENGINE ------------------
         function analyzeTransaction(narration, type) {
             const n = narration.toUpperCase();
             
-            // Determine Payment Method
+            // 1. Determine Method
             let method = 'Other';
             if (n.includes('UPI') || n.includes('@')) method = 'UPI';
             else if (n.includes('POS') || n.includes('CARD') || n.includes('NFS')) method = 'Card';
             else if (n.includes('NEFT')) method = 'NEFT';
             else if (n.includes('RTGS') || n.includes('IMPS')) method = 'RTGS';
-            else if (n.includes('ATM') || n.includes('CASH')) method = 'Cash';
+            else if (n.includes('ATM') || n.includes('CASH') || n.includes('CWDR')) method = 'Cash';
             else if (n.includes('CHG') || n.includes('GST') || n.includes('TAX')) method = 'Bank';
             else if (n.includes('CHQ') || n.includes('CLG')) method = 'Cheque';
 
-            // Determine Category (Business vs Personal)
+            // 2. Determine Category
             let category = 'Uncategorized';
-            const bizKeywords = ['GST','TAX','CGST','SGST','CHGS','CHARGE','SALARY','VENDOR','PVT','LTD','ENTERPRISE','TRADERS','AGENCY','SERVICES','STAX'];
-            const persKeywords = ['SWIGGY','ZOMATO','AMAZON','FLIPKART','MYNTRA','NETFLIX','UBER','OLA','IRCTC','RELIANCE','MART','PAYTM','HOSPITAL','CLINIC','BOOKMYSHOW','BMS'];
+            const bizKeywords = ['GST','TAX','CGST','SGST','CHGS','CHARGE','SALARY','VENDOR','PVT','LTD','ENTERPRISE','TRADERS','AGENCY','SERVICES','STAX','FEE'];
+            const persKeywords = ['SWIGGY','ZOMATO','AMAZON','FLIPKART','MYNTRA','NETFLIX','UBER','OLA','IRCTC','RELIANCE','MART','PAYTM','HOSPITAL','CLINIC','BOOKMYSHOW','BMS','ZUDIO'];
 
             if (type === 'debit') {
                 if (bizKeywords.some(k => n.includes(k))) category = 'Business';
                 else if (persKeywords.some(k => n.includes(k))) category = 'Personal';
             } else {
-                category = 'Income'; // Credits are usually just income/refunds
+                category = 'Income';
             }
 
             return { method, category };
         }
 
-        // App Initialization
+        // ------------------ INIT & NAVIGATION ------------------
         function initApp() {
             const stored = localStorage.getItem(STORAGE_KEY);
             if (stored) {
                 try {
                     allTxns = JSON.parse(stored);
                     if (allTxns.length > 0) {
+                        populateAccountDropdown();
                         switchTab('dashboard');
                         document.getElementById('navTabs').classList.add('active');
                         document.getElementById('navActions').style.display = 'block';
@@ -287,12 +316,11 @@
                         filterData();
                         return;
                     }
-                } catch(e) {}
+                } catch(e) { console.error(e); }
             }
             document.getElementById('upload-view').classList.add('active');
         }
 
-        // Tab Switching
         function switchTab(tabId) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
@@ -310,64 +338,43 @@
             }
         }
 
-        // File Parsing (Optimized for HDFC Statements)
-        function handleFile(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+        // ------------------ MULTI-FILE PARSING ------------------
+        async function handleFiles(event) {
+            const files = Array.from(event.target.files);
+            if (!files.length) return;
+            
+            const statusDiv = document.getElementById('uploadStatus');
+            statusDiv.innerText = `Processing ${files.length} file(s)...`;
+            
+            let newTxns = [];
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' }); 
-                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, raw: false });
-                processRows(rows);
-            };
-            reader.readAsArrayBuffer(file);
-        }
-
-        function processRows(rows) {
-            let startIdx = -1;
-            let txns = [];
-
-            for (let i = 0; i < rows.length; i++) {
-                if (rows[i][0]?.toString().toLowerCase().includes('date')) {
-                    startIdx = i + 1; break;
+            for (let file of files) {
+                try {
+                    const txns = await parseSingleFile(file);
+                    newTxns = newTxns.concat(txns);
+                } catch (err) {
+                    console.error(`Error processing ${file.name}:`, err);
                 }
             }
-            if (startIdx === -1) return alert("Invalid Format: 'Date' header not found.");
-            if (rows[startIdx][0]?.toString().includes('***')) startIdx++;
 
-            for (let i = startIdx; i < rows.length; i++) {
-                const r = rows[i];
-                if (!r || !r[0]) continue;
-                const dateStr = r[0].toString().trim();
-                if (dateStr === '' || dateStr.includes('***') || dateStr.toLowerCase().includes('summary')) break;
-
-                const withdrawal = parseNumber(r[4]);
-                const deposit = parseNumber(r[5]);
-                const balance = parseNumber(r[6]);
-                if (withdrawal === 0 && deposit === 0) continue;
-
-                const type = withdrawal > 0 ? 'debit' : 'credit';
-                const narration = (r[1] || '').toString().trim();
-                const analytics = analyzeTransaction(narration, type);
-
-                txns.push({
-                    date: dateStr,
-                    narration: narration,
-                    ref: (r[2] || '').toString().trim(),
-                    debit: withdrawal, credit: deposit, balance: balance,
-                    amount: withdrawal > 0 ? withdrawal : deposit,
-                    type: type,
-                    method: analytics.method,
-                    category: analytics.category
-                });
+            if (newTxns.length === 0) {
+                statusDiv.innerText = "No valid transactions found. Please check file formats.";
+                return;
             }
 
-            if (txns.length === 0) return alert("No valid transactions parsed.");
-            allTxns = txns;
+            // Merge with existing and sort
+            allTxns = allTxns.concat(newTxns);
+            
+            // Basic date sort (DD/MM/YY or DD/MM/YYYY to timestamp)
+            allTxns.sort((a, b) => {
+                const dateA = a.date.split('/').reverse().join('');
+                const dateB = b.date.split('/').reverse().join('');
+                return dateA.localeCompare(dateB);
+            });
+
             localStorage.setItem(STORAGE_KEY, JSON.stringify(allTxns));
             
+            populateAccountDropdown();
             document.getElementById('navTabs').classList.add('active');
             document.getElementById('navActions').style.display = 'block';
             switchTab('dashboard');
@@ -375,50 +382,161 @@
             filterData();
         }
 
-        // UI Updates
+        function parseSingleFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' }); 
+                        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, raw: false });
+                        
+                        const fileNameShort = file.name.replace('.csv', '');
+                        resolve(extractTransactions(rows, fileNameShort));
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                reader.onerror = () => reject(new Error("File read error"));
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function extractTransactions(rows, sourceName) {
+            let startIdx = -1;
+            let dateIdx = -1, narIdx = -1, debIdx = -1, credIdx = -1, balIdx = -1;
+
+            // Dynamic Header Detection
+            for (let i = 0; i < rows.length; i++) {
+                const rowStr = rows[i].map(c => (c||'').toString().toLowerCase());
+                
+                dateIdx = rowStr.findIndex(c => c.includes('date'));
+                narIdx = rowStr.findIndex(c => c.includes('narration') || c.includes('description') || c.includes('particulars'));
+                
+                if (dateIdx !== -1 && narIdx !== -1) {
+                    debIdx = rowStr.findIndex(c => c.includes('withdrawal') || c.includes('debit'));
+                    credIdx = rowStr.findIndex(c => c.includes('deposit') || c.includes('credit'));
+                    balIdx = rowStr.findIndex(c => c.includes('balance'));
+                    
+                    // Fallback to standard HDFC indices if dynamic fails
+                    if(debIdx === -1) debIdx = 4;
+                    if(credIdx === -1) credIdx = 5;
+                    if(balIdx === -1) balIdx = 6;
+
+                    startIdx = i + 1;
+                    break;
+                }
+            }
+
+            if (startIdx === -1) return []; // Invalid file format
+
+            if (rows[startIdx] && rows[startIdx][0] && rows[startIdx][0].toString().includes('***')) {
+                startIdx++;
+            }
+
+            let txns = [];
+            for (let i = startIdx; i < rows.length; i++) {
+                const r = rows[i];
+                if (!r || !r[dateIdx]) continue;
+                
+                const dateStr = r[dateIdx].toString().trim();
+                if (dateStr === '' || dateStr.includes('***') || dateStr.toLowerCase().includes('summary')) break;
+
+                const withdrawal = parseNumber(r[debIdx]);
+                const deposit = parseNumber(r[credIdx]);
+                const balance = parseNumber(r[balIdx]);
+                
+                if (withdrawal === 0 && deposit === 0) continue;
+
+                const type = withdrawal > 0 ? 'debit' : 'credit';
+                const narration = escapeHTML((r[narIdx] || '').toString().trim());
+                const ref = escapeHTML((r[narIdx + 1] || '').toString().trim()); // usually adjacent
+                
+                const analytics = analyzeTransaction(narration, type);
+
+                txns.push({
+                    account: sourceName,
+                    date: dateStr,
+                    narration: narration,
+                    ref: ref,
+                    debit: withdrawal, 
+                    credit: deposit, 
+                    balance: balance,
+                    amount: withdrawal > 0 ? withdrawal : deposit,
+                    type: type,
+                    method: analytics.method,
+                    category: analytics.category
+                });
+            }
+            return txns;
+        }
+
+        // ------------------ UI UPDATES ------------------
+        function populateAccountDropdown() {
+            const select = document.getElementById('accountFilter');
+            const uniqueAccounts = [...new Set(allTxns.map(t => t.account))];
+            
+            select.innerHTML = '<option value="all">All Accounts</option>';
+            uniqueAccounts.forEach(acc => {
+                select.innerHTML += `<option value="${escapeHTML(acc)}">${escapeHTML(acc)}</option>`;
+            });
+        }
+
         function updateStats() {
-            let inTotal = 0, outTotal = 0, bizTotal = 0;
-            allTxns.forEach(t => {
+            let inTotal = 0, outTotal = 0, bizTotal = 0, persTotal = 0;
+            
+            // To respect filters in stats, we use the filtered data
+            const accFilter = document.getElementById('accountFilter').value;
+            const activeData = accFilter === 'all' ? allTxns : allTxns.filter(t => t.account === accFilter);
+
+            activeData.forEach(t => {
                 inTotal += t.credit;
                 outTotal += t.debit;
                 if(t.category === 'Business') bizTotal += t.debit;
+                if(t.category === 'Personal') persTotal += t.debit;
             });
             
-            document.getElementById('val-balance').innerText = formatCurrency(allTxns[allTxns.length - 1]?.balance || 0);
             document.getElementById('val-credit').innerText = formatCurrency(inTotal);
             document.getElementById('val-debit').innerText = formatCurrency(outTotal);
             document.getElementById('val-biz-exp').innerText = formatCurrency(bizTotal);
+            document.getElementById('val-pers-exp').innerText = formatCurrency(persTotal);
         }
 
         function filterData() {
             const search = document.getElementById('searchInput').value.toLowerCase();
+            const accF = document.getElementById('accountFilter').value;
             const typeF = document.getElementById('typeFilter').value;
             const methodF = document.getElementById('methodFilter').value;
             const catF = document.getElementById('categoryFilter').value;
 
             let filtered = allTxns.filter(t => {
-                const matchS = t.narration.toLowerCase().includes(search) || t.amount.toString().includes(search);
+                const matchS = t.narration.toLowerCase().includes(search) || t.amount.toString().includes(search) || t.account.toLowerCase().includes(search);
+                const matchAcc = accF === 'all' || t.account === accF;
                 const matchT = typeF === 'all' || t.type === typeF;
                 const matchM = methodF === 'all' || t.method.includes(methodF);
                 const matchC = catF === 'all' || t.category === catF;
-                return matchS && matchT && matchM && matchC;
+                return matchS && matchAcc && matchT && matchM && matchC;
             });
 
-            // Sort newest first naturally
-            renderTable(filtered.reverse());
-            allTxns.reverse(); // put array back in natural order
+            updateStats(); // Update header stats based on account filter
+            
+            // Render table reversed (newest on top generally)
+            renderTable([...filtered].reverse()); 
         }
 
         function renderTable(data) {
             const tbody = document.getElementById('tableBody');
-            if (!data.length) return tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:3rem; color:var(--text-muted)">No records match filters.</td></tr>`;
+            if (!data.length) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:3rem; color:var(--text-muted)">No records found.</td></tr>`;
+                return;
+            }
 
             tbody.innerHTML = data.map(r => `
                 <tr>
-                    <td><strong>${r.date}</strong></td>
+                    <td style="white-space:nowrap;"><strong>${r.date}</strong></td>
+                    <td><span class="account-tag">${r.account}</span></td>
                     <td class="narration-cell">
                         <div class="narration-text" title="${r.narration}">${r.narration}</div>
-                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Ref: ${r.ref || 'N/A'}</div>
                     </td>
                     <td>
                         <span class="badge badge-method">${r.method}</span>
@@ -432,49 +550,43 @@
             `).join('');
         }
 
-        // CHART.JS Analytics Rendering
+        // ------------------ ANALYTICS ------------------
         function renderCharts() {
             if (allTxns.length === 0) return;
 
-            // Destroy old charts to prevent hover glitch overlays
             Object.values(chartInstances).forEach(chart => chart.destroy());
 
-            // 1. Data Prep: Business vs Personal (Expenses Only)
-            let bizExp = 0, persExp = 0, uncatExp = 0;
-            
-            // 2. Data Prep: Payment Methods (Count)
-            let methodCounts = {};
+            const accFilter = document.getElementById('accountFilter').value;
+            const activeData = accFilter === 'all' ? allTxns : allTxns.filter(t => t.account === accFilter);
 
-            // 3. Data Prep: Monthly Trend
+            let bizExp = 0, persExp = 0, uncatExp = 0;
+            let methodCounts = {};
             let monthlyData = {};
 
-            allTxns.forEach(t => {
-                // Category summation
+            activeData.forEach(t => {
                 if (t.type === 'debit') {
                     if (t.category === 'Business') bizExp += t.amount;
                     else if (t.category === 'Personal') persExp += t.amount;
                     else uncatExp += t.amount;
                 }
 
-                // Method counting
                 methodCounts[t.method] = (methodCounts[t.method] || 0) + 1;
 
-                // Monthly grouping (Extract MM/YYYY)
                 const parts = t.date.split('/');
-                if(parts.length === 3) {
-                    const monthKey = `${parts[1]}/${parts[2]}`;
+                if(parts.length >= 2) {
+                    const monthKey = parts.length === 3 ? `${parts[1]}/${parts[2]}` : t.date; 
                     if(!monthlyData[monthKey]) monthlyData[monthKey] = { in: 0, out: 0 };
                     if(t.type === 'credit') monthlyData[monthKey].in += t.amount;
                     else monthlyData[monthKey].out += t.amount;
                 }
             });
 
-            // -- Render Category Pie Chart --
+            // Category Chart
             const ctxCat = document.getElementById('categoryChart').getContext('2d');
             chartInstances.cat = new Chart(ctxCat, {
                 type: 'pie',
                 data: {
-                    labels: ['Business', 'Personal', 'Uncategorized'],
+                    labels: ['Business Expenses', 'Personal Expenses', 'Uncategorized'],
                     datasets: [{
                         data: [bizExp, persExp, uncatExp],
                         backgroundColor: ['#4f46e5', '#db2777', '#9ca3af']
@@ -483,7 +595,7 @@
                 options: { responsive: true, maintainAspectRatio: false }
             });
 
-            // -- Render Method Doughnut Chart --
+            // Method Chart
             const ctxMethod = document.getElementById('methodChart').getContext('2d');
             chartInstances.method = new Chart(ctxMethod, {
                 type: 'doughnut',
@@ -497,7 +609,7 @@
                 options: { responsive: true, maintainAspectRatio: false }
             });
 
-            // -- Render Monthly Trend Bar Chart --
+            // Monthly Trend Bar Chart
             const months = Object.keys(monthlyData);
             const incomeData = months.map(m => monthlyData[m].in);
             const expenseData = months.map(m => monthlyData[m].out);
@@ -508,8 +620,8 @@
                 data: {
                     labels: months,
                     datasets: [
-                        { label: 'Income', data: incomeData, backgroundColor: '#059669', borderRadius: 4 },
-                        { label: 'Expenses', data: expenseData, backgroundColor: '#dc2626', borderRadius: 4 }
+                        { label: 'Total Income', data: incomeData, backgroundColor: '#059669', borderRadius: 4 },
+                        { label: 'Total Expenses', data: expenseData, backgroundColor: '#dc2626', borderRadius: 4 }
                     ]
                 },
                 options: {
