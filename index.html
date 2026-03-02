@@ -126,7 +126,7 @@
         </div>
 
         <div id="navActions" style="display: none; align-items: center;">
-            <button class="btn btn-success" onclick="exportData()">⬇ Export CSV</button>
+            <button class="btn btn-success" onclick="exportData()">⬇ Export Report</button>
             <button class="btn btn-danger" onclick="clearData()">Clear Data</button>
         </div>
     </nav>
@@ -135,7 +135,7 @@
         <div id="upload-view" class="view-section active">
             <div class="upload-container">
                 <h1 style="color: var(--primary); margin-bottom: 0.5rem;">Unified Financial Intelligence</h1>
-                <p style="color: var(--text-muted);">Upload one or multiple bank statements to track business & personal expenses across all accounts seamlessly.</p>
+                <p style="color: var(--text-muted);">Upload your bank statements. The engine will clean, merge, and categorize your transactions automatically.</p>
                 <div class="drop-zone" onclick="document.getElementById('csvFile').click()">
                     <h3 style="font-size: 1.125rem;">Select Multi-CSV Files</h3>
                     <p style="font-size: 0.8rem; margin-top: 0.5rem;">Hold CTRL/CMD to select multiple files.</p>
@@ -188,7 +188,7 @@
                         <option value="Card">Card</option>
                         <option value="NEFT">NEFT / RTGS</option>
                         <option value="Bank">Bank Charges</option>
-                        <option value="Cheque">Cheque</option>
+                        <option value="Cheque">Cheque / Cash</option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -244,58 +244,30 @@
                 </div>
             </div>
         </div>
-
     </div>
 
     <script>
-        const STORAGE_KEY = 'hdfc_native_multi_v4';
+        const STORAGE_KEY = 'hdfc_rocksolid_multi_v5';
         let allTxns = [];
         let filteredTxns = [];
         let chartInstances = {};
 
-        // --- NATIVE CSV PARSER (Bulletproof against HDFC formatting issues) ---
-        function parseCSV(text) {
-            const rows = [];
-            let currentRow = [];
-            let currentCell = '';
-            let inQuotes = false;
-            
-            for (let i = 0; i < text.length; i++) {
-                const char = text[i];
-                const nextChar = text[i + 1];
-                
-                if (inQuotes) {
-                    if (char === '"' && nextChar === '"') {
-                        currentCell += '"'; i++; 
-                    } else if (char === '"') {
-                        inQuotes = false;
-                    } else {
-                        currentCell += char;
-                    }
-                } else {
-                    if (char === '"') {
-                        inQuotes = true;
-                    } else if (char === ',') {
-                        currentRow.push(currentCell.trim()); currentCell = '';
-                    } else if (char === '\n' || (char === '\r' && nextChar === '\n')) {
-                        currentRow.push(currentCell.trim()); rows.push(currentRow);
-                        currentRow = []; currentCell = '';
-                        if (char === '\r') i++;
-                    } else if (char !== '\r') {
-                        currentCell += char;
-                    }
-                }
+        // --- CUSTOM BULLETPROOF CSV ROW PARSER ---
+        function splitCSVRow(str) {
+            let result = [], cur = '', inQuotes = false;
+            for (let i = 0; i < str.length; i++) {
+                if (str[i] === '"') inQuotes = !inQuotes;
+                else if (str[i] === ',' && !inQuotes) { result.push(cur.trim()); cur = ''; } 
+                else { cur += str[i]; }
             }
-            if (currentCell !== '' || currentRow.length > 0) {
-                currentRow.push(currentCell.trim()); rows.push(currentRow);
-            }
-            return rows;
+            result.push(cur.trim());
+            return result;
         }
 
         // --- UTILITIES ---
         const parseNumber = (val) => {
             if (!val) return 0;
-            const parsed = parseFloat(val.toString().replace(/,/g, ''));
+            const parsed = parseFloat(val.toString().replace(/,/g, '').replace(/"/g, ''));
             return isNaN(parsed) ? 0 : parsed;
         };
         const formatCurrency = (num) => '₹' + parseNumber(num).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -310,9 +282,9 @@
             else if (n.includes('POS') || n.includes('CARD') || n.includes('NFS')) method = 'Card';
             else if (n.includes('NEFT')) method = 'NEFT';
             else if (n.includes('RTGS') || n.includes('IMPS')) method = 'RTGS';
-            else if (n.includes('ATM') || n.includes('CASH') || n.includes('CWDR')) method = 'Cash';
+            else if (n.includes('ATM') || n.includes('CASH') || n.includes('CWDR')) method = 'Cheque';
             else if (n.includes('CHG') || n.includes('GST') || n.includes('TAX')) method = 'Bank';
-            else if (n.includes('CHQ') || n.includes('CLG')) method = 'Cheque';
+            else if (n.includes('CHQ') || n.includes('CLG') || n.includes('CHEQUE')) method = 'Cheque';
 
             let category = 'Uncategorized';
             const bizKeywords = ['GST','TAX','CGST','SGST','CHGS','CHARGE','SALARY','VENDOR','PVT','LTD','ENTERPRISE','TRADERS','AGENCY','SERVICES','STAX','FEE','FT - '];
@@ -321,9 +293,7 @@
             if (type === 'debit') {
                 if (bizKeywords.some(k => n.includes(k))) category = 'Business';
                 else if (persKeywords.some(k => n.includes(k))) category = 'Personal';
-            } else {
-                category = 'Income';
-            }
+            } else { category = 'Income'; }
             return { method, category };
         }
 
@@ -363,20 +333,16 @@
 
         function exportData() {
             if(!filteredTxns.length) return alert("No data to export.");
-            
             let csvContent = "data:text/csv;charset=utf-8,Date,Account,Description,Ref,Type,Method,Category,Amount,Balance\n";
             filteredTxns.forEach(t => {
                 let row = `"${t.date}","${t.account}","${t.narration}","${t.ref}","${t.type}","${t.method}","${t.category}","${t.amount}","${t.balance}"`;
                 csvContent += row + "\r\n";
             });
-
             const encodedUri = encodeURI(csvContent);
             const link = document.createElement("a");
             link.setAttribute("href", encodedUri);
             link.setAttribute("download", "Bank_Insight_Report.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
         }
 
         // --- FILE PARSING CORE ---
@@ -385,27 +351,25 @@
             if (!files.length) return;
             
             const statusDiv = document.getElementById('uploadStatus');
-            statusDiv.innerText = `Extracting ${files.length} file(s)... Please wait.`;
+            statusDiv.innerText = `Extracting ${files.length} file(s)...`;
             
             let newTxns = [];
             for (let file of files) {
                 try {
                     const txns = await parseSingleFile(file);
                     newTxns = newTxns.concat(txns);
-                } catch (err) {
-                    console.error(`Error in ${file.name}:`, err);
-                }
+                } catch (err) { console.error(`Error in ${file.name}:`, err); }
             }
 
             if (newTxns.length === 0) {
-                statusDiv.innerText = "Error: Could not find valid transactions in these files.";
+                statusDiv.innerText = "Error: 0 valid transactions found. Make sure this is an HDFC statement.";
                 statusDiv.style.color = 'var(--danger)';
                 return;
             }
 
             allTxns = allTxns.concat(newTxns);
             
-            // Sort Date Descending (assuming DD/MM/YY)
+            // Sort Date Descending
             allTxns.sort((a, b) => {
                 const dA = a.date.split('/').reverse().join('');
                 const dB = b.date.split('/').reverse().join('');
@@ -413,7 +377,6 @@
             });
 
             localStorage.setItem(STORAGE_KEY, JSON.stringify(allTxns));
-            
             populateAccountDropdown();
             document.getElementById('navTabs').classList.add('active');
             document.getElementById('navActions').style.display = 'flex';
@@ -426,66 +389,74 @@
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     try {
-                        const rows = parseCSV(e.target.result);
+                        const lines = e.target.result.split(/\r?\n/);
                         const fileNameShort = file.name.replace('.csv', '');
-                        resolve(extractTransactions(rows, fileNameShort));
+                        resolve(extractTransactions(lines, fileNameShort));
                     } catch (err) { reject(err); }
                 };
                 reader.onerror = () => reject(new Error("File read error"));
-                reader.readAsText(file);
+                reader.readAsText(file); // Native read
             });
         }
 
-        function extractTransactions(rows, sourceName) {
-            let startIdx = -1;
-            let dateIdx = -1, narIdx = -1, debIdx = 4, credIdx = 5, balIdx = 6;
-
-            // Header Detection
-            for (let i = 0; i < rows.length; i++) {
-                if (rows[i].length < 3) continue;
-                
-                const rowStr = rows[i].map(c => c.toLowerCase());
-                dateIdx = rowStr.findIndex(c => c === 'date' || c === 'tran date' || c === 'txn date');
-                narIdx = rowStr.findIndex(c => c.includes('narration') || c.includes('description') || c.includes('particulars'));
-                
-                if (dateIdx !== -1 && narIdx !== -1) {
-                    const d = rowStr.findIndex(c => c.includes('withdrawal') || c === 'debit');
-                    const cr = rowStr.findIndex(c => c.includes('deposit') || c === 'credit');
-                    const bl = rowStr.findIndex(c => c.includes('balance'));
-                    if(d !== -1) debIdx = d;
-                    if(cr !== -1) credIdx = cr;
-                    if(bl !== -1) balIdx = bl;
-                    
-                    startIdx = i + 1;
-                    break;
-                }
-            }
-
-            if (startIdx === -1) return []; 
-
-            while (startIdx < rows.length && rows[startIdx] && rows[startIdx][0] && rows[startIdx][0].includes('***')) {
-                startIdx++;
-            }
-
+        function extractTransactions(lines, sourceName) {
             let txns = [];
-            for (let i = startIdx; i < rows.length; i++) {
-                const r = rows[i];
-                if (!r || !r[dateIdx]) continue;
-                
-                const dateStr = r[dateIdx].trim();
-                if (dateStr === '' || dateStr.includes('***') || dateStr.toLowerCase().includes('summary') || dateStr.toLowerCase().includes('opening balance')) {
-                    break; 
+            let headerFound = false;
+            let dateIdx = 0, narIdx = 1, refIdx = 2, debIdx = 4, credIdx = 5, balIdx = 6;
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+
+                if (!headerFound) {
+                    const lowerLine = line.toLowerCase();
+                    // Identify HDFC standard header row
+                    if (lowerLine.includes('date') && lowerLine.includes('narration') && lowerLine.includes('closing balance')) {
+                        headerFound = true;
+                        
+                        // Dynamically map columns just in case they shift
+                        const headers = splitCSVRow(lowerLine);
+                        const find = (str) => headers.findIndex(h => h.includes(str));
+                        
+                        let d = find('withdrawal') !== -1 ? find('withdrawal') : find('debit');
+                        let c = find('deposit') !== -1 ? find('deposit') : find('credit');
+                        let b = find('balance');
+                        let dt = find('date');
+                        let nr = find('narration') !== -1 ? find('narration') : find('description');
+                        let rf = find('ref.');
+
+                        if(d !== -1) debIdx = d;
+                        if(c !== -1) credIdx = c;
+                        if(b !== -1) balIdx = b;
+                        if(dt !== -1) dateIdx = dt;
+                        if(nr !== -1) narIdx = nr;
+                        if(rf !== -1) refIdx = rf;
+                    }
+                    continue;
                 }
 
-                const withdrawal = parseNumber(r[debIdx]);
-                const deposit = parseNumber(r[credIdx]);
-                const balance = parseNumber(r[balIdx]);
-                
-                if (withdrawal === 0 && deposit === 0) continue;
+                // Ignore the star separators and summary footers
+                if (line.includes('********') || line.includes('STATEMENT SUMMARY') || line.toLowerCase().includes('opening balance')) {
+                    if (line.includes('STATEMENT SUMMARY')) break; // Stop reading further
+                    continue; 
+                }
+
+                const cols = splitCSVRow(line);
+                if (cols.length < 5) continue; // Not a full transaction row
+
+                const dateStr = cols[dateIdx] || '';
+                // Standard HDFC dates look like DD/MM/YY
+                if (!dateStr.match(/\d{2}\/\d{2}\/\d{2,4}/)) continue; 
+
+                const withdrawal = parseNumber(cols[debIdx]);
+                const deposit = parseNumber(cols[credIdx]);
+                const balance = parseNumber(cols[balIdx]);
+
+                if (withdrawal === 0 && deposit === 0) continue; // Ignore empty rows
 
                 const type = withdrawal > 0 ? 'debit' : 'credit';
-                const narration = r[narIdx].trim();
-                const ref = r.length > narIdx + 1 ? r[narIdx + 1].trim() : '';
+                const narration = cols[narIdx] || '';
+                const ref = cols[refIdx] || '';
                 const analytics = analyzeTransaction(narration, type);
 
                 txns.push({
@@ -618,7 +589,6 @@
                 options: { responsive: true, maintainAspectRatio: false }
             });
 
-            // Trend Chart (Reverse to show oldest to newest left-to-right)
             const sortedMonths = Object.keys(monthlyData).sort((a,b) => {
                 const aParts = a.split('/'); const bParts = b.split('/');
                 return aParts[1] === bParts[1] ? aParts[0] - bParts[0] : aParts[1] - bParts[1];
